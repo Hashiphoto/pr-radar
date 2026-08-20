@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: set this to true or false
+# esbuild ships a prebuilt binary through its platform-specific optional dependency, so
+# its install script is not needed. Declaring it here keeps pnpm 11 from treating the
+# skipped script as a hard error, which would otherwise fail every `pnpm run`.
+ignoredBuiltDependencies:
+  - esbuild
+verifyDepsBeforeRun: false

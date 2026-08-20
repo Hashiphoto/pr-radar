@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# PR Radar service control. Run with no arguments to start it and open a browser.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+unit="pr-radar"
+port="${PORT:-4317}"
+url="http://localhost:${port}"
+unit_file="${HOME}/.config/systemd/user/${unit}.service"
+
+cd "$here"
+
+is_up() {
+  curl -sf -o /dev/null --max-time 2 "${url}/api/service"
+}
+
+wait_for_up() {
+  for _ in $(seq 1 40); do
+    is_up && return 0
+    sleep 0.5
+  done
+  return 1
+}
+
+under_systemd() {
+  systemctl --user cat "$unit" > /dev/null 2>&1
+}
+
+ensure_built() {
+  [[ -d node_modules ]] || { echo "Installing dependencies..."; pnpm install; }
+  [[ -d dist ]] || { echo "Building the client..."; pnpm build; }
+}
+
+running_pid() {
+  curl -sf --max-time 2 "${url}/api/service" 2>/dev/null \
+    | sed -n 's/.*"pid":\([0-9]*\).*/\1/p'
+}
+
+write_unit() {
+  mkdir -p "$(dirname "$unit_file")"
+  # systemd starts with a bare PATH, so pin the node that is active right now
+  # rather than letting it fall back to an older /usr/bin/node.
+  local node_bin
+  node_bin="$(dirname "$(command -v node)")"
+  cat > "$unit_file" <<UNIT
+[Unit]
+Description=PR Radar - personalized GitHub pull request dashboard
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${here}
+ExecStart=${here}/node_modules/.bin/tsx server/index.ts
+Environment=PORT=${port}
+Environment=PATH=${node_bin}:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+UNIT
+}
+
+case "${1:-open}" in
+  open | start)
+    ensure_built
+    if is_up; then
+      echo "Already running on ${url}"
+    elif under_systemd; then
+      systemctl --user start "$unit"
+      wait_for_up && echo "Started via systemd on ${url}"
+    else
+      nohup node_modules/.bin/tsx server/index.ts > /tmp/pr-radar.log 2>&1 &
+      wait_for_up && echo "Started on ${url} (log: /tmp/pr-radar.log)"
+    fi
+    [[ "${1:-open}" == "open" ]] && command -v xdg-open > /dev/null &&
+      xdg-open "$url" > /dev/null 2>&1 || true
+    ;;
+
+  stop)
+    if under_systemd; then
+      systemctl --user stop "$unit"
+      echo "Stopped the systemd unit."
+    else
+      pid="$(running_pid || true)"
+      if [[ -n "${pid:-}" ]]; then
+        kill "$pid" && echo "Stopped pid ${pid}."
+      else
+        echo "Not running."
+      fi
+    fi
+    ;;
+
+  restart)
+    ensure_built
+    if under_systemd; then
+      systemctl --user restart "$unit"
+      wait_for_up && echo "Restarted via systemd on ${url}"
+    else
+      "$0" stop || true
+      sleep 1
+      "$0" start
+    fi
+    ;;
+
+  status)
+    if is_up; then
+      echo "PR Radar is UP on ${url}"
+      curl -s "${url}/api/service"
+      echo
+    else
+      echo "PR Radar is DOWN (nothing answering on ${url})"
+    fi
+    under_systemd && systemctl --user status "$unit" --no-pager || true
+    ;;
+
+  logs)
+    if under_systemd; then
+      journalctl --user -u "$unit" -f
+    else
+      tail -f /tmp/pr-radar.log
+    fi
+    ;;
+
+  install)
+    ensure_built
+    write_unit
+    systemctl --user daemon-reload
+    systemctl --user enable "$unit"
+    # enable --now leaves an already-active unit on its old definition.
+    systemctl --user restart "$unit"
+    wait_for_up && echo "Installed and running as a user service on ${url}"
+    echo "Survive logout with: sudo loginctl enable-linger ${USER}"
+    ;;
+
+  uninstall)
+    systemctl --user disable --now "$unit" 2>/dev/null || true
+    rm -f "$unit_file"
+    systemctl --user daemon-reload
+    echo "Removed the ${unit} user service."
+    ;;
+
+  build)
+    pnpm build
+    under_systemd && systemctl --user restart "$unit" && echo "Rebuilt and restarted."
+    ;;
+
+  *)
+    cat <<USAGE
+PR Radar service control
+
+  ./pr-radar [open]    start if needed, then open ${url}
+  ./pr-radar start     start without opening a browser
+  ./pr-radar stop      stop it
+  ./pr-radar restart   restart it
+  ./pr-radar status    report health, pid, uptime
+  ./pr-radar logs      follow the log
+  ./pr-radar build     rebuild the client, restart if managed by systemd
+  ./pr-radar install   run it as a systemd user service, starting at login
+  ./pr-radar uninstall remove the systemd user service
+USAGE
+    ;;
+esac
