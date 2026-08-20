@@ -172,8 +172,13 @@ export const ChecksPanel = ({ repository, number }: ChecksPanelProps) => {
       {report.checks.length === 0 && (
         <p className="hint">No failing checks are reported on the latest commit any more.</p>
       )}
-      {report.checks.map((check) => (
-        <CheckBlock key={check.name} check={check} repository={repository} number={number} />
+      {report.checks.map((check, index) => (
+        <CheckBlock
+          key={`${check.name}-${check.checkRunId ?? index}`}
+          check={check}
+          repository={repository}
+          number={number}
+        />
       ))}
     </div>
   );

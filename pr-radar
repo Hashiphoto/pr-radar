@@ -23,8 +23,12 @@ wait_for_up() {
   return 1
 }
 
+# True only when the installed unit points at *this* checkout, so a second clone does
+# not drive the instance some other directory installed.
 under_systemd() {
-  systemctl --user cat "$unit" > /dev/null 2>&1
+  local installed
+  installed="$(systemctl --user show -p WorkingDirectory --value "$unit" 2>/dev/null || true)"
+  [[ -n "$installed" && "$installed" == "$here" ]]
 }
 
 ensure_built() {
@@ -85,8 +89,8 @@ case "${1:-open}" in
       systemctl --user start "$unit"
       wait_for_up && echo "Started via systemd on ${url}"
     else
-      nohup node_modules/.bin/tsx server/index.ts > /tmp/pr-radar.log 2>&1 &
-      wait_for_up && echo "Started on ${url} (log: /tmp/pr-radar.log)"
+      nohup node_modules/.bin/tsx server/index.ts > /tmp/pr-radar-${port}.log 2>&1 &
+      wait_for_up && echo "Started on ${url} (log: /tmp/pr-radar-${port}.log)"
     fi
     [[ "${1:-open}" == "open" ]] && command -v xdg-open > /dev/null &&
       xdg-open "$url" > /dev/null 2>&1 || true
@@ -133,7 +137,7 @@ case "${1:-open}" in
     if under_systemd; then
       journalctl --user -u "$unit" -f
     else
-      tail -f /tmp/pr-radar.log
+      tail -f "/tmp/pr-radar-${port}.log"
     fi
     ;;
 

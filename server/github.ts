@@ -39,9 +39,11 @@ const query = `
 query PrRadar($reviewRequested: String!, $authored: String!) {
   viewer { login avatarUrl }
   reviewRequested: search(query: $reviewRequested, type: ISSUE, first: 60) {
+    issueCount
     nodes { ... on PullRequest { ${prFields} } }
   }
   authored: search(query: $authored, type: ISSUE, first: 60) {
+    issueCount
     nodes { ... on PullRequest { ${prFields} } }
   }
   rateLimit { remaining limit resetAt }
@@ -77,10 +79,15 @@ interface RawPullRequest {
   reviewThreads: { nodes: { isResolved: boolean; isOutdated: boolean }[] };
 }
 
+interface SearchResult {
+  issueCount: number;
+  nodes: (RawPullRequest | null)[];
+}
+
 interface SnapshotData {
   viewer: { login: string; avatarUrl: string };
-  reviewRequested: { nodes: (RawPullRequest | null)[] };
-  authored: { nodes: (RawPullRequest | null)[] };
+  reviewRequested: SearchResult;
+  authored: SearchResult;
   rateLimit: { remaining: number; limit: number; resetAt: string } | null;
 }
 
@@ -181,6 +188,18 @@ export const fetchSnapshot = async (
   );
   const mine = mapNodes(data.authored.nodes);
 
+  // A silently truncated list reads as "you are all caught up", which is the one thing
+  // this dashboard must never get wrong.
+  const truncation = [
+    { label: 'review requests', result: data.reviewRequested },
+    { label: 'of your pull requests', result: data.authored },
+  ]
+    .filter((entry) => entry.result.issueCount > entry.result.nodes.length)
+    .map(
+      (entry) =>
+        `Showing ${entry.result.nodes.length} of ${entry.result.issueCount} ${entry.label}. Narrow the search with an organization filter.`,
+    );
+
   const dismissed = incoming.filter((pullRequest) => dismissedIds.has(pullRequest.id));
   const active = incoming.filter((pullRequest) => !dismissedIds.has(pullRequest.id));
 
@@ -203,7 +222,7 @@ export const fetchSnapshot = async (
     dismissedReviews: dismissed.sort(byUpdatedDescending),
     myPrs,
     rateLimit: data.rateLimit,
-    warnings,
+    warnings: [...warnings, ...truncation],
   };
 };
 
