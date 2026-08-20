@@ -63,20 +63,31 @@ export const parseBuildUrl = (detailsUrl: string | null): BuildRef | null => {
   return { organization: match[1], project: match[2], buildId: match[3] };
 };
 
+const adoHost = 'dev.azure.com';
+
+const basePath = (ref: BuildRef): string =>
+  `https://${adoHost}/${encodeURIComponent(ref.organization)}/${encodeURIComponent(ref.project)}`;
+
 export const buildWebUrl = (ref: BuildRef): string =>
-  `https://dev.azure.com/${ref.organization}/${ref.project}/_build/results?buildId=${ref.buildId}&view=results`;
+  `${basePath(ref)}/_build/results?buildId=${encodeURIComponent(ref.buildId)}&view=results`;
 
 const taskWebUrl = (ref: BuildRef, jobId: string): string =>
-  `https://dev.azure.com/${ref.organization}/${ref.project}/_build/results?buildId=${ref.buildId}&view=logs&j=${jobId}`;
+  `${basePath(ref)}/_build/results?buildId=${encodeURIComponent(ref.buildId)}&view=logs&j=${encodeURIComponent(jobId)}`;
 
 const apiUrl = (ref: BuildRef, path: string): string =>
-  `https://dev.azure.com/${ref.organization}/${ref.project}/_apis/build/builds/${ref.buildId}${path}?api-version=${apiVersion}`;
+  `${basePath(ref)}/_apis/build/builds/${encodeURIComponent(ref.buildId)}${path}?api-version=${apiVersion}`;
 
 const request = async (
   url: string,
   init?: RequestInit,
   accept = 'application/json',
 ): Promise<Response> => {
+  // The credential must never travel anywhere but Azure DevOps, including when the URL
+  // came back inside an API response rather than being built here.
+  if (new URL(url).host !== adoHost) {
+    throw new AzureDevOpsUnavailableError(`Refusing to send credentials to ${new URL(url).host}`);
+  }
+
   const response = await fetch(url, {
     ...init,
     headers: {
@@ -206,7 +217,7 @@ export const fetchBuildFailure = async (ref: BuildRef): Promise<BuildFailure> =>
 
 export const retryBuild = async (ref: BuildRef, stageIdentifier: string | null): Promise<string> => {
   const url = stageIdentifier
-    ? `https://dev.azure.com/${ref.organization}/${ref.project}/_apis/build/builds/${ref.buildId}/stages/${encodeURIComponent(stageIdentifier)}?api-version=${apiVersion}`
+    ? apiUrl(ref, `/stages/${encodeURIComponent(stageIdentifier)}`)
     : `${apiUrl(ref, '')}&retry=true`;
 
   const response = await request(url, {

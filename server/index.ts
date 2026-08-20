@@ -9,6 +9,14 @@ import { demoChecks, demoService, demoSnapshot, isDemoMode } from './demoData.js
 import { collectLiveIds, fetchSnapshot } from './github.js';
 import { describeService } from './serviceInfo.js';
 import {
+  azureSegment,
+  digits,
+  githubSlug,
+  InvalidInputError,
+  optionalSegment,
+  positiveInteger,
+} from './validate.js';
+import {
   addDismissed,
   getDismissed,
   getSettings,
@@ -19,6 +27,9 @@ import {
 } from './store.js';
 
 const port = Number(process.env.PORT ?? 4317);
+// Loopback only by default: the dashboard exposes the viewer's private pull requests and
+// can trigger authenticated CI writes, so it must not be reachable from the network.
+const host = process.env.HOST ?? '127.0.0.1';
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const clientDist = join(projectRoot, 'dist');
 
@@ -27,6 +38,12 @@ app.use(express.json());
 
 const asMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Unexpected server error';
+
+const failureStatus = (error: unknown): number => {
+  if (error instanceof InvalidInputError) return 400;
+  if (error instanceof AzureDevOpsUnavailableError) return 401;
+  return 502;
+};
 
 app.get('/api/prs', async (_request, response) => {
   try {
@@ -47,22 +64,16 @@ app.get('/api/prs', async (_request, response) => {
 });
 
 app.get('/api/checks', async (request, response) => {
-  const { owner, repo, number } = request.query;
-
-  if (typeof owner !== 'string' || typeof repo !== 'string' || typeof number !== 'string') {
-    response.status(400).json({ error: 'owner, repo and number are required' });
-    return;
-  }
-
   try {
-    if (isDemoMode) {
-      response.json(demoChecks(`${owner}/${repo}`, Number(number)));
-      return;
-    }
+    const owner = githubSlug('owner', request.query.owner);
+    const repo = githubSlug('repo', request.query.repo);
+    const number = positiveInteger('number', request.query.number);
 
-    response.json(await fetchFailingChecks(owner, repo, Number(number)));
+    response.json(
+      isDemoMode ? demoChecks(`${owner}/${repo}`, number) : await fetchFailingChecks(owner, repo, number),
+    );
   } catch (error) {
-    response.status(502).json({ error: asMessage(error) });
+    response.status(failureStatus(error)).json({ error: asMessage(error) });
   }
 });
 
@@ -70,25 +81,32 @@ app.post('/api/retry', async (request, response) => {
   const { organization, project, buildId, stage, owner, repo, checkRunId } = request.body ?? {};
 
   try {
-    if (typeof organization === 'string' && typeof project === 'string' && typeof buildId === 'string') {
+    if (organization !== undefined || project !== undefined || buildId !== undefined) {
       const message = await retryBuild(
-        { organization, project, buildId },
-        typeof stage === 'string' ? stage : null,
+        {
+          organization: azureSegment('organization', organization),
+          project: azureSegment('project', project),
+          buildId: digits('buildId', buildId),
+        },
+        optionalSegment('stage', stage ?? null),
       );
       response.json({ message });
       return;
     }
 
-    if (typeof owner === 'string' && typeof repo === 'string' && typeof checkRunId === 'number') {
-      await rerequestCheckRun(owner, repo, checkRunId);
+    if (checkRunId !== undefined) {
+      await rerequestCheckRun(
+        githubSlug('owner', owner),
+        githubSlug('repo', repo),
+        positiveInteger('checkRunId', checkRunId),
+      );
       response.json({ message: 'Asked GitHub to re-run the check.' });
       return;
     }
 
     response.status(400).json({ error: 'Provide an Azure DevOps build or a GitHub check run' });
   } catch (error) {
-    const status = error instanceof AzureDevOpsUnavailableError ? 401 : 502;
-    response.status(status).json({ error: asMessage(error) });
+    response.status(failureStatus(error)).json({ error: asMessage(error) });
   }
 });
 
@@ -145,9 +163,9 @@ if (existsSync(clientDist)) {
   });
 }
 
-app.listen(port, () => {
+app.listen(port, host, () => {
   const hasClient = existsSync(clientDist);
-  console.log(`pr-radar api listening on http://localhost:${port}`);
+  console.log(`pr-radar listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port}`);
   console.log(`state file: ${stateFilePath}`);
   if (!hasClient) {
     console.log('client bundle not built yet - run `pnpm dev` for the Vite dev server');

@@ -122,5 +122,8 @@ export const rerequestCheckRun = async (
   repo: string,
   checkRunId: number,
 ): Promise<void> => {
-  await githubRest(`/repos/${owner}/${repo}/check-runs/${checkRunId}/rerequest`, { method: 'POST' });
+  await githubRest(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/check-runs/${checkRunId}/rerequest`,
+    { method: 'POST' },
+  );
 };
