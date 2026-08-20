@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=PR Radar
-Comment=Personalized GitHub pull request dashboard
-Exec=/home/trent/Git/pr-radar/pr-radar
-Icon=applications-development
-Terminal=false
-Categories=Development;

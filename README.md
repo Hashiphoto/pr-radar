@@ -172,14 +172,9 @@ sudo nft 'add chain ip nat output { type nat hook output priority -100; }' 2>/de
 sudo nft add rule ip nat output ip daddr 127.0.0.1 tcp dport 80 redirect to :4317
 ```
 
-An app launcher entry is also available:
-
-```bash
-cp pr-radar.desktop ~/.local/share/applications/
-```
-
-`.desktop` files cannot expand `~`, so edit the `Exec=` line if you cloned this
-somewhere other than `~/Git/pr-radar`.
+`install` also writes a desktop launcher entry to
+`~/.local/share/applications/pr-radar.desktop`, generated with this checkout's real path
+and the app icon, so PR Radar shows up in your application menu. `uninstall` removes both.
 
 ## Demo mode
 

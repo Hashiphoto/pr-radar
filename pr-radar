@@ -7,6 +7,7 @@ unit="pr-radar"
 port="${PORT:-4317}"
 url="http://localhost:${port}"
 unit_file="${HOME}/.config/systemd/user/${unit}.service"
+desktop_file="${HOME}/.local/share/applications/${unit}.desktop"
 
 cd "$here"
 
@@ -34,6 +35,20 @@ ensure_built() {
 running_pid() {
   curl -sf --max-time 2 "${url}/api/service" 2>/dev/null \
     | sed -n 's/.*"pid":\([0-9]*\).*/\1/p'
+}
+
+write_desktop_entry() {
+  mkdir -p "$(dirname "$desktop_file")"
+  cat > "$desktop_file" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=PR Radar
+Comment=Personalized GitHub pull request dashboard
+Exec=${here}/pr-radar
+Icon=${here}/public/favicon.svg
+Terminal=false
+Categories=Development;
+DESKTOP
 }
 
 write_unit() {
@@ -125,6 +140,7 @@ case "${1:-open}" in
   install)
     ensure_built
     write_unit
+    write_desktop_entry
     systemctl --user daemon-reload
     systemctl --user enable "$unit"
     # enable --now leaves an already-active unit on its old definition.
@@ -135,7 +151,7 @@ case "${1:-open}" in
 
   uninstall)
     systemctl --user disable --now "$unit" 2>/dev/null || true
-    rm -f "$unit_file"
+    rm -f "$unit_file" "$desktop_file"
     systemctl --user daemon-reload
     echo "Removed the ${unit} user service."
     ;;
