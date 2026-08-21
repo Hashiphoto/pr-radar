@@ -30,6 +30,7 @@ export interface SignalOptions {
   isBot: (actor: Actor | null | undefined) => boolean;
   wantBots: boolean;
   isRequested: boolean;
+  authorLogin: string | null;
 }
 
 const hasBeenReviewed = (signals: ReviewSignals): boolean =>
@@ -43,10 +44,16 @@ export const reviewStateFor = (signals: ReviewSignals): ReviewState => ({
   hasUnresolvedThreads: signals.openThreadCount > 0,
   hasChangesRequested: signals.hasChangesRequested,
   isApproved: signals.isApproved,
+  openThreadCount: signals.openThreadCount,
 });
 
+// An author answering a bot on their own pull request is recorded as a COMMENTED review, and their
+// own thread is not feedback they are waiting on, so neither counts as a review of the work.
 export const signalsFor = (input: ReviewInput, options: SignalOptions): ReviewSignals => {
-  const owned = (actor: Actor | null | undefined) => options.isBot(actor) === options.wantBots;
+  const isAuthor = (actor: Actor | null | undefined) =>
+    options.authorLogin !== null && actor?.login === options.authorLogin;
+  const owned = (actor: Actor | null | undefined) =>
+    options.isBot(actor) === options.wantBots && !isAuthor(actor);
   const latest = input.latestOpinionatedReviews.nodes.filter((review) => owned(review.author));
   const threads = input.reviewThreads.nodes.filter((thread) => owned(thread.comments.nodes[0]?.author));
 

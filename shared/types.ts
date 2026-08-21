@@ -19,6 +19,7 @@ export interface ReviewState {
   hasUnresolvedThreads: boolean;
   hasChangesRequested: boolean;
   isApproved: boolean;
+  openThreadCount: number;
 }
 
 export interface Label {
@@ -49,7 +50,6 @@ export interface PullRequest {
   requestedTeams: string[];
   approvalCount: number;
   changesRequestedCount: number;
-  unresolvedThreadCount: number;
   myReviewState: MyReviewState;
   humanReview: ReviewState;
   botReview: ReviewState;

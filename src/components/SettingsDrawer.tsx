@@ -29,13 +29,37 @@ export const SettingsDrawer = ({
 }: SettingsDrawerProps) => {
   const [vipDraft, setVipDraft] = useState('');
   const [orgDraft, setOrgDraft] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
   const vipInputRef = useRef<HTMLInputElement>(null);
+  const configInputRef = useRef<HTMLInputElement>(null);
 
   // Autofocus belongs to opening the drawer, not to every render: sharing an effect with the
   // Escape handler stole the caret back on each keystroke elsewhere in the panel.
   useEffect(() => {
     vipInputRef.current?.focus();
   }, []);
+
+  const exportConfig = () => {
+    const url = URL.createObjectURL(
+      new Blob([`${JSON.stringify(settings, null, 2)}\n`], { type: 'application/json' }),
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'pr-radar-config.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importConfig = async (file: File) => {
+    setImportError(null);
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      if (typeof parsed !== 'object' || parsed === null) throw new Error('not an object');
+      onChange(parsed as Partial<Settings>);
+    } catch {
+      setImportError(`${file.name} is not a PR Radar config file.`);
+    }
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -189,8 +213,8 @@ export const SettingsDrawer = ({
               onChange={(event) => onChange({ botReviewComment: event.target.value })}
             />
             <p className="hint">
-              Turns Bot review <em>Not requested</em> into a button that comments this on the pull
-              request. Leave it empty to hide the button.
+              On a draft whose Bot review is <em>Not requested</em>, that cell becomes a button
+              that comments this on the pull request. Leave it empty to hide the button.
             </p>
           </div>
 
@@ -248,10 +272,36 @@ export const SettingsDrawer = ({
           </div>
 
           <div className="field">
-            <span className="field-label">State file</span>
+            <span className="field-label">Config file</span>
             <p className="hint">
-              <code>{stateFile}</code>
+              Everything on this panel lives in <code>{stateFile}</code>. Export writes the same
+              JSON without your set-aside pull requests, so it is safe to hand to someone else;
+              importing replaces every setting in it, groups included.
             </p>
+            <div className="row">
+              <button type="button" className="icon-button" onClick={exportConfig}>
+                Export config
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => configInputRef.current?.click()}
+              >
+                Import config
+              </button>
+            </div>
+            <input
+              ref={configInputRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(event) => {
+                const [file] = event.target.files ?? [];
+                if (file) void importConfig(file);
+                event.target.value = '';
+              }}
+            />
+            {importError && <p className="hint is-bad">{importError}</p>}
           </div>
         </div>
       </aside>

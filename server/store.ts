@@ -148,13 +148,14 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
     ? [...new Set(patch.orgs.map((org) => org.trim()).filter(Boolean))]
     : current.settings.orgs;
 
+  // Every field is named rather than spread from the patch, because an imported config file is
+  // arbitrary JSON and unknown keys have no business reaching the state file.
   const next: PersistedState = {
     ...current,
     settings: {
-      ...current.settings,
-      ...patch,
       vips: normalizedVips,
       orgs: normalizedOrgs,
+      includeTeamRequests: patch.includeTeamRequests ?? current.settings.includeTeamRequests,
       groups: patch.groups ? coerceGroups(patch.groups, current.settings.groups) : current.settings.groups,
       jiraBaseUrl: (patch.jiraBaseUrl ?? current.settings.jiraBaseUrl).trim(),
       botReviewComment: (patch.botReviewComment ?? current.settings.botReviewComment).trim(),

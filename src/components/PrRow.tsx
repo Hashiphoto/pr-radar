@@ -40,10 +40,10 @@ const shortRepo = (repository: string): string => repository.split('/').pop() ??
 interface ValuePillsProps {
   column: ColumnId;
   values: ColumnValues;
-  details?: Record<string, number>;
+  counts?: Record<string, number>;
 }
 
-const ValuePills = ({ column, values, details }: ValuePillsProps) => {
+const ValuePills = ({ column, values, counts }: ValuePillsProps) => {
   const owned = values[column].flatMap((id) => {
     const value = columnValue(column, id);
     return value ? [value] : [];
@@ -54,7 +54,7 @@ const ValuePills = ({ column, values, details }: ValuePillsProps) => {
   return (
     <div className="pill-stack">
       {owned.map((value) => {
-        const count = details?.[value.id] ?? 0;
+        const count = counts?.[value.id] ?? 0;
         return (
           <span key={value.id} className={`pill is-${value.tone}`} title={value.label}>
             {value.label}
@@ -105,8 +105,9 @@ export const PrRow = ({
   const humanCounts = {
     approved: pullRequest.approvalCount,
     changesRequested: pullRequest.changesRequestedCount,
-    unresolved: pullRequest.unresolvedThreadCount,
+    unresolved: pullRequest.humanReview.openThreadCount,
   };
+  const botCounts = { unresolved: pullRequest.botReview.openThreadCount };
 
   const copyBranch = async () => {
     try {
@@ -136,10 +137,11 @@ export const PrRow = ({
     }
   };
 
+  // Only on a draft: asking a bot early is the point, and once the pull request is ready its
+  // reviewers are already on the hook.
   const canAskForBotReview =
     botReviewComment.length > 0 &&
-    pullRequest.state !== 'merged' &&
-    pullRequest.state !== 'closed' &&
+    pullRequest.state === 'draft' &&
     values.bot.includes('notRequested');
 
   const requestNote = [
@@ -265,22 +267,29 @@ export const PrRow = ({
         </td>
 
         <td className="cell-review">
-          <ValuePills column="human" values={values} details={humanCounts} />
+          <ValuePills column="human" values={values} counts={humanCounts} />
         </td>
 
         <td className="cell-review">
           {canAskForBotReview ? (
             <button
               type="button"
-              className={`pill is-clickable${requestError ? ' is-red' : ' is-neutral'}`}
+              className={`pill is-clickable is-ask${requestError ? ' is-red' : ' is-neutral'}`}
               disabled={requestState !== 'idle'}
               title={requestError ?? `Comment "${botReviewComment}" on this pull request`}
               onClick={() => void askForBotReview()}
             >
-              {requestState === 'idle' ? 'Ask for review' : 'Asked'}
+              {requestState === 'idle' ? (
+                <>
+                  <span className="ask-resting">Not requested</span>
+                  <span className="ask-hover">Ask</span>
+                </>
+              ) : (
+                'Asked'
+              )}
             </button>
           ) : (
-            <ValuePills column="bot" values={values} />
+            <ValuePills column="bot" values={values} counts={botCounts} />
           )}
         </td>
 

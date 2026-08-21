@@ -60,6 +60,7 @@ const humanReviewFor = (seed: Seed): PullRequest['humanReview'] => {
     hasUnresolvedThreads: hasThreads,
     hasChangesRequested: seed.reviewDecision === 'CHANGES_REQUESTED',
     isApproved: seed.reviewDecision === 'APPROVED',
+    openThreadCount: seed.unresolvedThreadCount ?? 0,
   };
 };
 
@@ -69,6 +70,7 @@ const botReviewFor = (seed: Seed): PullRequest['botReview'] => ({
   hasUnresolvedThreads: false,
   hasChangesRequested: false,
   isApproved: !seed.isDraft,
+  openThreadCount: 0,
 });
 
 const toPr = (seed: Seed): PullRequest => ({
@@ -94,7 +96,6 @@ const toPr = (seed: Seed): PullRequest => ({
   requestedTeams: seed.requestedTeams ?? [],
   approvalCount: seed.approvalCount ?? 0,
   changesRequestedCount: seed.reviewDecision === 'CHANGES_REQUESTED' ? 1 : 0,
-  unresolvedThreadCount: seed.unresolvedThreadCount ?? 0,
   myReviewState: null,
   humanReview: seed.humanReview ?? humanReviewFor(seed),
   botReview: seed.botReview ?? botReviewFor(seed),
@@ -135,6 +136,7 @@ const vipReviews: Seed[] = [
       hasUnresolvedThreads: false,
       hasChangesRequested: false,
       isApproved: false,
+      openThreadCount: 0,
     },
     isVip: true,
   },
@@ -168,7 +170,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 612,
-    botReview: { isRequested: true, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false },
+    botReview: { isRequested: true, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false, openThreadCount: 0 },
     title: 'Render assignee and group columns in the recurring task grid',
     author: 'sam-oakes',
     repository: 'acme/connectors',
@@ -181,7 +183,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 615,
-    botReview: { isRequested: false, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false },
+    botReview: { isRequested: false, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false, openThreadCount: 0 },
     title: 'Route knowledge base questions to the research agent',
     author: 'priya-n',
     repository: 'acme/connectors',
@@ -275,6 +277,7 @@ const mine: Seed[] = [
       hasUnresolvedThreads: true,
       hasChangesRequested: false,
       isApproved: false,
+      openThreadCount: 1,
     },
   },
   {

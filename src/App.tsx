@@ -9,7 +9,7 @@ import { useGroupNotifications, type GroupMembership } from './notifications.js'
 import { GearIcon, GroupsIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
 import { GroupEditorModal } from './components/GroupEditorModal.js';
 import { GroupRow } from './components/GroupRow.js';
-import { PrTable } from './components/PrTable.js';
+import { DEFAULT_WIDTHS, PrTable } from './components/PrTable.js';
 import { Section } from './components/Section.js';
 import { ServiceFooter } from './components/ServiceFooter.js';
 import { SettingsDrawer } from './components/SettingsDrawer.js';
@@ -61,6 +61,10 @@ export const App = () => {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [isGroupEditorOpen, setIsGroupEditorOpen] = useState(false);
   const [collapsed, setCollapsed] = useLocalStorage<Record<string, boolean>>('pr-radar.collapsed', {});
+  const [widths, setWidths] = useLocalStorage<Record<string, number>>(
+    'pr-radar.columnWidths',
+    DEFAULT_WIDTHS,
+  );
   const { theme, toggleTheme } = useTheme();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -204,6 +208,14 @@ export const App = () => {
   const groupIds = useMemo(() => (settings?.groups ?? []).map((group) => group.id), [settings]);
   const reorder = useReorder(groupIds, reorderGroups);
 
+  // Every group renders its own table, so the widths live here: dragging one heading has to move
+  // the same column in all of them or the page stops reading as one table.
+  const resizeColumn = useCallback(
+    (column: string, width: number) =>
+      setWidths((current) => ({ ...current, [column]: Math.round(width) })),
+    [setWidths],
+  );
+
   const toggleSection = useCallback(
     (key: string) => setCollapsed((current) => ({ ...current, [key]: !current[key] })),
     [setCollapsed],
@@ -337,6 +349,8 @@ export const App = () => {
       dismissedIds={dismissedIds}
       jiraBaseUrl={settings?.jiraBaseUrl ?? ''}
       botReviewComment={settings?.botReviewComment ?? ''}
+      widths={widths}
+      onResize={resizeColumn}
       onToggleVip={toggleVip}
       onDismiss={dismiss}
       onRestore={restore}

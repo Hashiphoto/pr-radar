@@ -14,21 +14,30 @@ A local dashboard for the pull requests that actually need you.
   say so. Ships with VIP review requests, Review requested and My pull requests; change them or
   throw them away.
 - **One table, one row per pull request** — status, name, repo, Jira issue, author, checks,
-  human review and bot review, each its own column.
+  human review and bot review, each its own column. Drag any column edge to resize it, double
+  click to reset; the name column takes whatever is left.
 - **Filters are the columns** — a group narrows any column to the values you pick from a
   multi-select, and *All* is the default. Several values in one column match any of them;
   different columns must all match. What a row shows is exactly what a group can filter on.
-- **Review state, split human from bot** — changes requested, unresolved threads, approved,
-  awaiting review, reviewed, not requested — the same six for people and for bots, so a
-  CodeRabbit nit never reads as a human blocking you. A pull request lands on the most blocking
-  value it owns, and a review still outstanding outranks one that already happened.
+- **Review state, split human from bot** — changes requested, unresolved threads, awaiting
+  review, approved, reviewed, not requested — the same six for people and for bots, so a
+  CodeRabbit nit never reads as a human blocking you. A row carries every value it owns, because
+  a pull request can have changes requested and still owe another review. The author is not one
+  of its own reviewers: answering a bot on your own pull request is recorded as a review, and
+  counting it would say a human had looked when none had.
 - **Recently merged** — your merged pull requests from the last 14 days come along too, so
   `Merged` is a status you can group on rather than one the table could never show.
 - **Per-group notifications** — mark any group *Notify* and get a desktop notification the
   moment a pull request lands in it.
 - **Branch name and Jira issue on every row** — click the branch to copy it; the issue key
   in the title gets its own column, linked straight to Jira.
-- **Not going to review** — set a PR aside so it leaves the queue. Reversible any time.
+- **Not going to review** — set a pull request aside and it stops showing until you toggle
+  *Not reviewing*. It stays in the groups it belongs to. Reversible any time.
+- **Nudge a bot on a draft** — on a draft whose bot review is *Not requested*, that cell is a
+  button that comments whatever you set as *Ask a bot for review* in settings, `@coderabbitai
+  review` by default. Empty text hides it.
+- **Shareable config** — everything in settings, groups included, is one JSON file. *Export
+  config* writes it without your set-aside pull requests, so a teammate can import it as is.
 - **Failing checks, explained inline** — click a `Failing` pill to expand the failing tests
   pulled straight out of the Azure Pipelines logs, then retry just the failed stage.
 - Light and dark themes, text and repo filters, keyboard shortcuts (<kbd>r</kbd> refresh,
@@ -93,6 +102,12 @@ so widening its filters does not announce everything it sweeps in.
 
 **Jira links.** Set *Jira base URL* in settings to something like
 `https://your-org.atlassian.net/browse`, and the Jira column links the first issue key in each title.
+
+**Config.** Settings and groups live in `~/.config/pr-radar/state.json`, alongside the pull
+requests you have set aside; `PR_RADAR_STATE` moves the file. *Export config* and *Import config*
+at the bottom of settings (`,`) round-trip the settings half of it as `pr-radar-config.json`, so
+sharing a set of groups is one file rather than a hand-edit. Importing replaces every setting in
+the file it names and leaves your set-aside list alone.
 
 **A nicer URL.** Add this to `/etc/hosts` for <http://pr-radar.test:4317>:
 

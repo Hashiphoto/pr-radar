@@ -136,8 +136,9 @@ const daysAgo = (days: number): string =>
 
 const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest => {
   // Bot verdicts have their own dimension, so the approval tally counts people only.
+  const authorLogin = raw.author?.login ?? null;
   const countableReviews = raw.latestOpinionatedReviews.nodes.filter(
-    (review) => !isBot(review.author),
+    (review) => !isBot(review.author) && review.author?.login !== authorLogin,
   );
 
   const requestedLogins = raw.reviewRequests.nodes
@@ -180,10 +181,13 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest =>
       .map((reviewer) => reviewer.name ?? 'team'),
     approvalCount: countableReviews.filter((review) => review.state === 'APPROVED').length,
     changesRequestedCount: countableReviews.filter((review) => review.state === 'CHANGES_REQUESTED').length,
-    unresolvedThreadCount: raw.reviewThreads.nodes.filter((thread) => !thread.isResolved && !thread.isOutdated).length,
     myReviewState: (myReview?.state as MyReviewState) ?? null,
-    humanReview: reviewStateFor(signalsFor(raw, { isBot, wantBots: false, isRequested: hasHumanRequest })),
-    botReview: reviewStateFor(signalsFor(raw, { isBot, wantBots: true, isRequested: hasBotRequest })),
+    humanReview: reviewStateFor(
+      signalsFor(raw, { isBot, wantBots: false, isRequested: hasHumanRequest, authorLogin }),
+    ),
+    botReview: reviewStateFor(
+      signalsFor(raw, { isBot, wantBots: true, isRequested: hasBotRequest, authorLogin }),
+    ),
     isVip: false,
   };
 };
