@@ -77,7 +77,9 @@ export const ColumnFilter = ({ column, selected, onChange }: ColumnFilterProps) 
               onClick={() => toggle(value.id)}
             >
               <span className="column-filter-box" />
-              <span className={`pill is-${value.tone}`}>{value.label}</span>
+              <span className={`pill is-${value.tone}`} title={value.rule}>
+                {value.label}
+              </span>
             </button>
           ))}
         </div>

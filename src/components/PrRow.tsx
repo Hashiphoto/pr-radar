@@ -28,11 +28,9 @@ const StateIcon = ({ state }: { state: PrState }) => {
   return <PrOpenIcon />;
 };
 
-const stateLabels: Record<PrState, string> = {
-  draft: 'Draft',
-  ready: 'Ready for review',
-  merged: 'Merged',
-  closed: 'Closed without merging',
+const statusTitle = (state: PrState): string => {
+  const value = columnValue('status', state);
+  return value ? `${value.label} — ${value.rule}` : 'Closed without merging';
 };
 
 const shortRepo = (repository: string): string => repository.split('/').pop() ?? repository;
@@ -56,7 +54,11 @@ const ValuePills = ({ column, values, counts }: ValuePillsProps) => {
       {owned.map((value) => {
         const count = counts?.[value.id] ?? 0;
         return (
-          <span key={value.id} className={`pill is-${value.tone}`} title={value.label}>
+          <span
+            key={value.id}
+            className={`pill is-${value.tone}`}
+            title={`${value.label} — ${value.rule}`}
+          >
             {value.label}
             {count > 1 && <span className="pill-detail">×{count}</span>}
           </span>
@@ -160,10 +162,7 @@ export const PrRow = ({
       >
         <td className="cell-status">
           <div className="status-stack">
-            <span
-              className={`state-icon is-${pullRequest.state}`}
-              title={stateLabels[pullRequest.state]}
-            >
+            <span className={`state-icon is-${pullRequest.state}`} title={statusTitle(pullRequest.state)}>
               <StateIcon state={pullRequest.state} />
             </span>
             {pullRequest.mergeable === 'CONFLICTING' && (

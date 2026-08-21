@@ -48,8 +48,6 @@ interface Seed {
 const stateOf = (seed: Seed): PullRequest['state'] =>
   seed.state ?? (seed.isDraft ? 'draft' : 'ready');
 
-// GitHub clears a review request once that reviewer weighs in, so a verdict and a pending request
-// only coexist when a second reviewer, usually a team, is still on the hook.
 const humanReviewFor = (seed: Seed): PullRequest['humanReview'] => {
   const hasVerdict = seed.reviewDecision === 'APPROVED' || seed.reviewDecision === 'CHANGES_REQUESTED';
   const hasThreads = (seed.unresolvedThreadCount ?? 0) > 0;
@@ -130,14 +128,6 @@ const vipReviews: Seed[] = [
     deletions: 51,
     changedFiles: 14,
     requestedTeams: ['storage'],
-    humanReview: {
-      isRequested: true,
-      hasBeenReviewed: true,
-      hasUnresolvedThreads: false,
-      hasChangesRequested: false,
-      isApproved: false,
-      openThreadCount: 0,
-    },
     isVip: true,
   },
 ];

@@ -21,10 +21,11 @@ A local dashboard for the pull requests that actually need you.
   different columns must all match. What a row shows is exactly what a group can filter on.
 - **Review state, split human from bot** — changes requested, unresolved threads, awaiting
   review, approved, reviewed, not requested — the same six for people and for bots, so a
-  CodeRabbit nit never reads as a human blocking you. A row carries every value it owns, because
-  a pull request can have changes requested and still owe another review. The author is not one
-  of its own reviewers: answering a bot on your own pull request is recorded as a review, and
-  counting it would say a human had looked when none had.
+  CodeRabbit nit never reads as a human blocking you. *Awaiting review* means every request is
+  still outstanding, so it never appears next to a value that says a review already landed; the
+  verdicts do stack, because a pull request can be approved with a thread still open. The author
+  is not one of its own reviewers: answering a bot on your own pull request is recorded as a
+  review, and counting it would say a human had looked when none had.
 - **Recently merged** — your merged pull requests from the last 14 days come along too, so
   `Merged` is a status you can group on rather than one the table could never show.
 - **Per-group notifications** — mark any group *Notify* and get a desktop notification the
@@ -40,9 +41,12 @@ A local dashboard for the pull requests that actually need you.
   config* writes it without your set-aside pull requests, so a teammate can import it as is.
 - **Failing checks, explained inline** — click a `Failing` pill to expand the failing tests
   pulled straight out of the Azure Pipelines logs, then retry just the failed stage.
+- **Every value explains itself** — hover any pill or status icon for the rule that put it there,
+  or press <kbd>?</kbd> for the whole set, column by column. The rules live next to the code that
+  decides them, so the window cannot drift from what the table does.
 - Light and dark themes, text and repo filters, keyboard shortcuts (<kbd>r</kbd> refresh,
-  <kbd>/</kbd> search, <kbd>d</kbd> dismissed, <kbd>g</kbd> groups, <kbd>,</kbd> settings),
-  auto refresh.
+  <kbd>/</kbd> search, <kbd>d</kbd> dismissed, <kbd>g</kbd> groups, <kbd>,</kbd> settings,
+  <kbd>?</kbd> help), auto refresh.
 
 ![Failing check expanded](docs/screenshot-dark.png)
 

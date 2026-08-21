@@ -6,8 +6,9 @@ import { clockTime, timeUntil } from './format.js';
 import { useLocalStorage, useTheme, useTick } from './hooks.js';
 import type { PrEntry } from './entries.js';
 import { useGroupNotifications, type GroupMembership } from './notifications.js';
-import { GearIcon, GroupsIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
+import { GearIcon, GroupsIcon, HelpIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
 import { GroupEditorModal } from './components/GroupEditorModal.js';
+import { HelpModal } from './components/HelpModal.js';
 import { GroupRow } from './components/GroupRow.js';
 import { DEFAULT_WIDTHS, PrTable } from './components/PrTable.js';
 import { Section } from './components/Section.js';
@@ -60,6 +61,7 @@ export const App = () => {
   const [showDismissed, setShowDismissed] = useLocalStorage('pr-radar.showDismissed', false);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [isGroupEditorOpen, setIsGroupEditorOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [collapsed, setCollapsed] = useLocalStorage<Record<string, boolean>>('pr-radar.collapsed', {});
   const [widths, setWidths] = useLocalStorage<Record<string, number>>(
     'pr-radar.columnWidths',
@@ -247,6 +249,9 @@ export const App = () => {
       } else if (event.key === 'g') {
         event.preventDefault();
         setIsGroupEditorOpen(true);
+      } else if (event.key === '?') {
+        event.preventDefault();
+        setIsHelpOpen(true);
       }
     };
 
@@ -382,6 +387,14 @@ export const App = () => {
         </button>
         <button type="button" className="icon-button" onClick={toggleTheme} title="Toggle theme">
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => setIsHelpOpen(true)}
+          title="What the columns mean (?)"
+        >
+          <HelpIcon />
         </button>
         <button
           type="button"
@@ -534,7 +547,7 @@ export const App = () => {
             {settings && <span>· auto refresh every {settings.pollSeconds}s</span>}
             <span>
               · <kbd>r</kbd> refresh <kbd>/</kbd> search <kbd>d</kbd> dismissed <kbd>g</kbd> groups{' '}
-              <kbd>,</kbd> settings
+              <kbd>,</kbd> settings <kbd>?</kbd> help
             </span>
           </div>
         </>
@@ -552,6 +565,8 @@ export const App = () => {
           onEditGroups={() => setIsGroupEditorOpen(true)}
         />
       )}
+
+      {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
 
       {isGroupEditorOpen && settings && (
         <GroupEditorModal

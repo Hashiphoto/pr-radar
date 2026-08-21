@@ -1511,6 +1511,34 @@ kbd {
   z-index: 51;
 }
 
+.modal.is-wide {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.help-column {
+  margin-top: 16px;
+}
+
+.help-values {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.help-value {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.help-value dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 .modal-head {
   display: flex;
   align-items: center;

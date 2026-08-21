@@ -267,7 +267,7 @@ export const SettingsDrawer = ({
             <span className="field-label">Shortcuts</span>
             <p className="hint">
               <kbd>r</kbd> refresh · <kbd>/</kbd> search · <kbd>d</kbd> toggle dismissed ·{' '}
-              <kbd>Esc</kbd> close
+              <kbd>?</kbd> what the columns mean · <kbd>Esc</kbd> close
             </p>
           </div>
 
