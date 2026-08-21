@@ -1,5 +1,13 @@
-import type { ReactNode } from 'react';
-import { ChevronIcon } from './Icons.js';
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { BellIcon, ChevronIcon, GearIcon, GripIcon } from './Icons.js';
+
+export interface SectionDrag {
+  isDragging: boolean;
+  isDropBefore: boolean;
+  isDropAfter: boolean;
+  ref: (element: HTMLElement | null) => void;
+  onPointerDown: (event: ReactPointerEvent) => void;
+}
 
 export interface SectionProps {
   title: string;
@@ -7,16 +15,69 @@ export interface SectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
   variant?: 'default' | 'vip';
+  notifies?: boolean;
+  isSettingsOpen?: boolean;
+  onOpenSettings?: () => void;
+  drag?: SectionDrag;
+  panel?: ReactNode;
   children: ReactNode;
 }
 
-export const Section = ({ title, count, isCollapsed, onToggle, variant = 'default', children }: SectionProps) => (
-  <section className={`section${variant === 'vip' ? ' is-vip' : ''}`}>
-    <button type="button" className="section-head" onClick={onToggle} aria-expanded={!isCollapsed}>
+const dragClasses = (drag: SectionDrag | undefined): string => {
+  if (!drag) return '';
+  return [
+    drag.isDragging ? ' is-dragging' : '',
+    drag.isDropBefore ? ' is-drop-before' : '',
+    drag.isDropAfter ? ' is-drop-after' : '',
+  ].join('');
+};
+
+export const Section = ({
+  title,
+  count,
+  isCollapsed,
+  onToggle,
+  variant = 'default',
+  notifies = false,
+  isSettingsOpen = false,
+  onOpenSettings,
+  drag,
+  panel,
+  children,
+}: SectionProps) => (
+  <section
+    ref={drag?.ref}
+    className={`section${variant === 'vip' ? ' is-vip' : ''}${dragClasses(drag)}`}
+  >
+    <div className={`section-head${drag ? ' is-draggable' : ''}`} onPointerDown={drag?.onPointerDown}>
+      {drag && <GripIcon className="section-grip" />}
       <h2>{title}</h2>
+      {notifies && <BellIcon className="section-bell" />}
       <span className="count">{count}</span>
-      <ChevronIcon className={`chevron${isCollapsed ? ' is-collapsed' : ''}`} />
-    </button>
+
+      <div className="section-controls">
+        {onOpenSettings && (
+          <button
+            type="button"
+            className={`icon-button is-tiny-square${isSettingsOpen ? ' is-active' : ''}`}
+            title={isSettingsOpen ? 'Close group settings' : `Settings for ${title}`}
+            onClick={onOpenSettings}
+          >
+            <GearIcon size={13} />
+          </button>
+        )}
+        <button
+          type="button"
+          className="icon-button is-tiny-square"
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? `Show ${title}` : `Hide ${title}`}
+          onClick={onToggle}
+        >
+          <ChevronIcon className={`chevron${isCollapsed ? ' is-collapsed' : ''}`} />
+        </button>
+      </div>
+    </div>
+    {panel}
     {!isCollapsed && children}
   </section>
 );

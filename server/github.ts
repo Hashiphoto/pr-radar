@@ -2,19 +2,20 @@ import type {
   CheckState,
   MergeableState,
   MyReviewState,
-  MyPrBucket,
   PullRequest,
   ReviewDecision,
   Settings,
   Snapshot,
 } from '../shared/types.js';
 import { githubGraphqlWithWarnings } from './githubClient.js';
+import { reviewStateFor, signalsFor } from './reviewState.js';
 
 const prFields = `
   id
   number
   title
   url
+  headRefName
   isDraft
   createdAt
   updatedAt
@@ -32,7 +33,13 @@ const prFields = `
   }
   latestOpinionatedReviews(first: 50) { nodes { author { __typename login } state } }
   reviews(first: 60) { nodes { author { __typename login } state } }
-  reviewThreads(first: 100) { nodes { isResolved isOutdated } }
+  reviewThreads(first: 100) {
+    nodes {
+      isResolved
+      isOutdated
+      comments(first: 1) { nodes { author { __typename login } } }
+    }
+  }
 `;
 
 const query = `
@@ -61,6 +68,7 @@ interface RawPullRequest {
   number: number;
   title: string;
   url: string;
+  headRefName: string;
   isDraft: boolean;
   createdAt: string;
   updatedAt: string;
@@ -76,7 +84,13 @@ interface RawPullRequest {
   reviewRequests: { nodes: { requestedReviewer: { __typename: string; login?: string; name?: string } | null }[] };
   latestOpinionatedReviews: { nodes: { author: RawActor | null; state: string }[] };
   reviews: { nodes: { author: RawActor | null; state: string }[] };
-  reviewThreads: { nodes: { isResolved: boolean; isOutdated: boolean }[] };
+  reviewThreads: {
+    nodes: {
+      isResolved: boolean;
+      isOutdated: boolean;
+      comments: { nodes: { author: RawActor | null }[] };
+    }[];
+  };
 }
 
 interface SearchResult {
@@ -103,9 +117,10 @@ const isBot = (actor: RawActor | null | undefined): boolean => {
 const buildSearchQuery = (base: string, orgs: string[]): string =>
   [base, 'is:open', 'is:pr', 'archived:false', ...orgs.map((org) => `org:${org}`)].join(' ');
 
-const toPullRequest = (raw: RawPullRequest, viewerLogin: string, settings: Settings): PullRequest => {
+const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest => {
+  // Bot verdicts have their own dimension, so the approval tally counts people only.
   const countableReviews = raw.latestOpinionatedReviews.nodes.filter(
-    (review) => !(settings.hideBotReviews && isBot(review.author)),
+    (review) => !isBot(review.author),
   );
 
   const requestedLogins = raw.reviewRequests.nodes
@@ -113,12 +128,17 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string, settings: Setti
     .filter((reviewer): reviewer is { __typename: string; login?: string; name?: string } => reviewer !== null);
 
   const myReview = raw.reviews.nodes.find((review) => review.author?.login === viewerLogin);
+  const isRequestedBot = (reviewer: { __typename: string; login?: string }) =>
+    reviewer.__typename !== 'Team' && isBot(reviewer);
+  const hasHumanRequest = requestedLogins.some((reviewer) => !isRequestedBot(reviewer));
+  const hasBotRequest = requestedLogins.some(isRequestedBot);
 
   return {
     id: raw.id,
     number: raw.number,
     title: raw.title,
     url: raw.url,
+    headRefName: raw.headRefName,
     isDraft: raw.isDraft,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
@@ -142,15 +162,10 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string, settings: Setti
     changesRequestedCount: countableReviews.filter((review) => review.state === 'CHANGES_REQUESTED').length,
     unresolvedThreadCount: raw.reviewThreads.nodes.filter((thread) => !thread.isResolved && !thread.isOutdated).length,
     myReviewState: (myReview?.state as MyReviewState) ?? null,
+    humanReview: reviewStateFor(signalsFor(raw, { isBot, wantBots: false, isRequested: hasHumanRequest })),
+    botReview: reviewStateFor(signalsFor(raw, { isBot, wantBots: true, isRequested: hasBotRequest })),
     isVip: false,
   };
-};
-
-const bucketForMyPr = (pullRequest: PullRequest): MyPrBucket => {
-  if (pullRequest.isDraft) return 'draft';
-  if (pullRequest.reviewDecision === 'CHANGES_REQUESTED') return 'changesRequested';
-  if (pullRequest.reviewDecision === 'APPROVED') return 'approved';
-  return 'awaitingReview';
 };
 
 const byUpdatedDescending = (left: PullRequest, right: PullRequest): number =>
@@ -179,7 +194,7 @@ export const fetchSnapshot = async (
     nodes
       .filter((node): node is RawPullRequest => node !== null)
       .map((node) => {
-        const pullRequest = toPullRequest(node, viewerLogin, settings);
+        const pullRequest = toPullRequest(node, viewerLogin);
         return { ...pullRequest, isVip: vipSet.has(pullRequest.author?.login.toLowerCase() ?? '') };
       });
 
@@ -203,32 +218,18 @@ export const fetchSnapshot = async (
   const dismissed = incoming.filter((pullRequest) => dismissedIds.has(pullRequest.id));
   const active = incoming.filter((pullRequest) => !dismissedIds.has(pullRequest.id));
 
-  const myPrs: Record<MyPrBucket, PullRequest[]> = {
-    draft: [],
-    awaitingReview: [],
-    changesRequested: [],
-    approved: [],
-  };
-
-  for (const pullRequest of [...mine].sort(byUpdatedDescending)) {
-    myPrs[bucketForMyPr(pullRequest)].push(pullRequest);
-  }
-
   return {
     viewer: data.viewer,
     fetchedAt: new Date().toISOString(),
-    vipReviews: active.filter((pullRequest) => pullRequest.isVip).sort(byOldestFirst),
-    incomingReviews: active.filter((pullRequest) => !pullRequest.isVip).sort(byOldestFirst),
-    dismissedReviews: dismissed.sort(byUpdatedDescending),
-    myPrs,
+    incoming: active.sort(byOldestFirst),
+    mine: [...mine].sort(byUpdatedDescending),
+    dismissed: dismissed.sort(byUpdatedDescending),
     rateLimit: data.rateLimit,
     warnings: [...warnings, ...truncation],
   };
 };
 
 export const collectLiveIds = (snapshot: Snapshot): Set<string> =>
-  new Set([
-    ...snapshot.vipReviews,
-    ...snapshot.incomingReviews,
-    ...snapshot.dismissedReviews,
-  ].map((pullRequest) => pullRequest.id));
+  new Set(
+    [...snapshot.incoming, ...snapshot.dismissed].map((pullRequest) => pullRequest.id),
+  );

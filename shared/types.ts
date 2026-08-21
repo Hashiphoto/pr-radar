@@ -6,6 +6,15 @@ export type MergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN' | null;
 
 export type MyReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | null;
 
+export type ReviewStage = 'notRequested' | 'awaiting' | 'reviewed';
+
+// Humans and bots get the same shape so a group can ask the same question of either.
+export interface ReviewState {
+  stage: ReviewStage;
+  hasUnresolvedThreads: boolean;
+  isApproved: boolean;
+}
+
 export interface Label {
   name: string;
   color: string;
@@ -16,6 +25,7 @@ export interface PullRequest {
   number: number;
   title: string;
   url: string;
+  headRefName: string;
   isDraft: boolean;
   createdAt: string;
   updatedAt: string;
@@ -35,20 +45,29 @@ export interface PullRequest {
   changesRequestedCount: number;
   unresolvedThreadCount: number;
   myReviewState: MyReviewState;
+  humanReview: ReviewState;
+  botReview: ReviewState;
   isVip: boolean;
 }
-
-export type MyPrBucket = 'draft' | 'awaitingReview' | 'changesRequested' | 'approved';
 
 export interface Snapshot {
   viewer: { login: string; avatarUrl: string };
   fetchedAt: string;
-  vipReviews: PullRequest[];
-  incomingReviews: PullRequest[];
-  dismissedReviews: PullRequest[];
-  myPrs: Record<MyPrBucket, PullRequest[]>;
+  incoming: PullRequest[];
+  mine: PullRequest[];
+  dismissed: PullRequest[];
   rateLimit: { remaining: number; limit: number; resetAt: string } | null;
   warnings: string[];
+}
+
+export type GroupScope = 'incoming' | 'mine' | 'all';
+
+export interface Group {
+  id: string;
+  name: string;
+  scope: GroupScope;
+  tags: string[];
+  notifyOnNew: boolean;
 }
 
 export interface Settings {
@@ -56,7 +75,8 @@ export interface Settings {
   pollSeconds: number;
   orgs: string[];
   includeTeamRequests: boolean;
-  hideBotReviews: boolean;
+  jiraBaseUrl: string;
+  groups: Group[];
 }
 
 export interface DismissedEntry {

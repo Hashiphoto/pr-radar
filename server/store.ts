@@ -1,19 +1,62 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { DismissedEntry, Settings } from '../shared/types.js';
+import { canonicalTagId, knownTagIds } from '../shared/tags.js';
+import type { DismissedEntry, Group, GroupScope, Settings } from '../shared/types.js';
 
 interface PersistedState {
   settings: Settings;
   dismissed: DismissedEntry[];
 }
 
+export const defaultGroups: Group[] = [
+  { id: 'vip', name: 'VIP review requests', scope: 'incoming', tags: ['vipAuthor'], notifyOnNew: true },
+  { id: 'incoming', name: 'Review requested', scope: 'incoming', tags: ['otherAuthor'], notifyOnNew: false },
+  { id: 'mine', name: 'My pull requests', scope: 'mine', tags: [], notifyOnNew: false },
+];
+
 export const defaultSettings: Settings = {
   vips: [],
   pollSeconds: 120,
   orgs: [],
   includeTeamRequests: true,
-  hideBotReviews: true,
+  jiraBaseUrl: '',
+  groups: defaultGroups,
+};
+
+const scopes = new Set<GroupScope>(['incoming', 'mine', 'all']);
+
+const isScope = (value: unknown): value is GroupScope => scopes.has(value as GroupScope);
+
+// A group whose tags no longer exist would silently match nothing, so renamed ids are carried
+// across and ones that are truly gone are dropped rather than persisted.
+const coerceGroup = (raw: unknown, index: number): Group | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const group = raw as Partial<Group>;
+  if (typeof group.name !== 'string' || group.name.trim().length === 0) return null;
+
+  return {
+    id: typeof group.id === 'string' && group.id.length > 0 ? group.id : `group-${index}`,
+    name: group.name.trim(),
+    scope: isScope(group.scope) ? group.scope : 'all',
+    tags: Array.isArray(group.tags)
+      ? [
+          ...new Set(
+            group.tags
+              .filter((tag): tag is string => typeof tag === 'string')
+              .map(canonicalTagId)
+              .filter((tag) => knownTagIds.has(tag)),
+          ),
+        ]
+      : [],
+    notifyOnNew: group.notifyOnNew === true,
+  };
+};
+
+const coerceGroups = (raw: unknown, fallback: Group[]): Group[] => {
+  if (!Array.isArray(raw)) return fallback;
+  const groups = raw.map(coerceGroup).filter((group): group is Group => group !== null);
+  return [...new Map(groups.map((group) => [group.id, group])).values()];
 };
 
 const stateFile =
@@ -38,7 +81,8 @@ const coerce = (raw: unknown): PersistedState => {
           : base.settings.pollSeconds,
       orgs: Array.isArray(settings.orgs) ? settings.orgs.filter((org) => typeof org === 'string') : base.settings.orgs,
       includeTeamRequests: settings.includeTeamRequests ?? base.settings.includeTeamRequests,
-      hideBotReviews: settings.hideBotReviews ?? base.settings.hideBotReviews,
+      jiraBaseUrl: typeof settings.jiraBaseUrl === 'string' ? settings.jiraBaseUrl : base.settings.jiraBaseUrl,
+      groups: coerceGroups(settings.groups, base.settings.groups),
     },
     dismissed: Array.isArray(parsed.dismissed)
       ? parsed.dismissed.filter((entry): entry is DismissedEntry => typeof entry?.id === 'string')
@@ -47,13 +91,24 @@ const coerce = (raw: unknown): PersistedState => {
 };
 
 let state: PersistedState | null = null;
+let queue: Promise<unknown> = Promise.resolve();
+let scratchCount = 0;
 
-const persist = async (next: PersistedState) => {
+const write = async (next: PersistedState) => {
   await mkdir(dirname(stateFile), { recursive: true });
-  const scratch = `${stateFile}.${process.pid}.tmp`;
+  scratchCount += 1;
+  const scratch = `${stateFile}.${process.pid}.${scratchCount}.tmp`;
   await writeFile(scratch, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
   await rename(scratch, stateFile);
   state = next;
+};
+
+// The editor saves on every keystroke and tag click, so overlapping writes are the norm rather
+// than the exception: they are queued, and each gets its own scratch file to rename from.
+const persist = (next: PersistedState): Promise<void> => {
+  const settled = queue.then(() => write(next));
+  queue = settled.catch(() => undefined);
+  return settled;
 };
 
 export const loadState = async (): Promise<PersistedState> => {
@@ -86,6 +141,8 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
       ...patch,
       vips: normalizedVips,
       orgs: normalizedOrgs,
+      groups: patch.groups ? coerceGroups(patch.groups, current.settings.groups) : current.settings.groups,
+      jiraBaseUrl: (patch.jiraBaseUrl ?? current.settings.jiraBaseUrl).trim(),
       pollSeconds: Math.max(15, Math.round(patch.pollSeconds ?? current.settings.pollSeconds)),
     },
   };

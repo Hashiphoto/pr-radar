@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MyPrBucket, PullRequest, Settings, Snapshot } from '../shared/types.js';
+import { matchesTags, tagsFor } from '../shared/tags.js';
+import type { PullRequest, Settings, Snapshot } from '../shared/types.js';
 import * as api from './api.js';
 import { clockTime, timeUntil } from './format.js';
 import { useLocalStorage, useTheme, useTick } from './hooks.js';
-import { GearIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
+import { useGroupNotifications, type GroupMembership } from './notifications.js';
+import { GearIcon, GroupsIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
+import { GroupEditorModal } from './components/GroupEditorModal.js';
+import { GroupRow } from './components/GroupRow.js';
 import { PrCard } from './components/PrCard.js';
 import { Section } from './components/Section.js';
 import { ServiceFooter } from './components/ServiceFooter.js';
 import { SettingsDrawer } from './components/SettingsDrawer.js';
-
-const bucketOrder: MyPrBucket[] = ['changesRequested', 'awaitingReview', 'approved', 'draft'];
-
-const bucketMeta: Record<MyPrBucket, { label: string; dot: string }> = {
-  draft: { label: 'Draft', dot: 'is-draft' },
-  awaitingReview: { label: 'Awaiting review', dot: 'is-awaiting' },
-  changesRequested: { label: 'Changes requested', dot: 'is-changes' },
-  approved: { label: 'Approved', dot: 'is-approved' },
-};
+import { moveGroup } from './groups.js';
+import { useReorder } from './reorder.js';
 
 const matchesSearch = (pullRequest: PullRequest, term: string): boolean => {
   if (!term) return true;
@@ -37,11 +34,14 @@ const matchesSearch = (pullRequest: PullRequest, term: string): boolean => {
     .every((token) => haystack.includes(token));
 };
 
+// Settings that only change how the client renders what it already has, so saving them must not
+// spend a GitHub request.
+const clientOnlySettings = new Set<string>(['groups', 'jiraBaseUrl', 'pollSeconds']);
+
 const allPrs = (snapshot: Snapshot): PullRequest[] => [
-  ...snapshot.vipReviews,
-  ...snapshot.incomingReviews,
-  ...snapshot.dismissedReviews,
-  ...bucketOrder.flatMap((bucket) => snapshot.myPrs[bucket]),
+  ...snapshot.incoming,
+  ...snapshot.mine,
+  ...snapshot.dismissed,
 ];
 
 export const App = () => {
@@ -54,6 +54,8 @@ export const App = () => {
   const [search, setSearch] = useState('');
   const [repoFilter, setRepoFilter] = useState('all');
   const [showDismissed, setShowDismissed] = useLocalStorage('pr-radar.showDismissed', false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [isGroupEditorOpen, setIsGroupEditorOpen] = useState(false);
   const [collapsed, setCollapsed] = useLocalStorage<Record<string, boolean>>('pr-radar.collapsed', {});
   const { theme, toggleTheme } = useTheme();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -97,7 +99,7 @@ export const App = () => {
       try {
         const result = await api.updateSettings(patch);
         setSettings(result.settings);
-        await refresh();
+        if (Object.keys(patch).some((key) => !clientOnlySettings.has(key))) await refresh();
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Failed to save settings');
       }
@@ -124,9 +126,8 @@ export const App = () => {
         current
           ? {
               ...current,
-              vipReviews: current.vipReviews.filter((entry) => entry.id !== pullRequest.id),
-              incomingReviews: current.incomingReviews.filter((entry) => entry.id !== pullRequest.id),
-              dismissedReviews: [pullRequest, ...current.dismissedReviews],
+              incoming: current.incoming.filter((entry) => entry.id !== pullRequest.id),
+              dismissed: [pullRequest, ...current.dismissed],
             }
           : current,
       );
@@ -153,11 +154,8 @@ export const App = () => {
         current
           ? {
               ...current,
-              dismissedReviews: current.dismissedReviews.filter((entry) => entry.id !== pullRequest.id),
-              vipReviews: pullRequest.isVip ? [pullRequest, ...current.vipReviews] : current.vipReviews,
-              incomingReviews: pullRequest.isVip
-                ? current.incomingReviews
-                : [pullRequest, ...current.incomingReviews],
+              dismissed: current.dismissed.filter((entry) => entry.id !== pullRequest.id),
+              incoming: [pullRequest, ...current.incoming],
             }
           : current,
       );
@@ -171,6 +169,36 @@ export const App = () => {
     },
     [refresh],
   );
+
+  const patchGroup = useCallback(
+    (id: string, changes: Partial<Settings['groups'][number]>) => {
+      if (!settings) return;
+      void applySettings({
+        groups: settings.groups.map((group) => (group.id === id ? { ...group, ...changes } : group)),
+      });
+    },
+    [applySettings, settings],
+  );
+
+  const removeGroup = useCallback(
+    (id: string) => {
+      if (!settings) return;
+      setEditingGroupId(null);
+      void applySettings({ groups: settings.groups.filter((group) => group.id !== id) });
+    },
+    [applySettings, settings],
+  );
+
+  const reorderGroups = useCallback(
+    (from: number, to: number) => {
+      if (!settings) return;
+      void applySettings({ groups: moveGroup(settings.groups, from, to) });
+    },
+    [applySettings, settings],
+  );
+
+  const groupIds = useMemo(() => (settings?.groups ?? []).map((group) => group.id), [settings]);
+  const reorder = useReorder(groupIds, reorderGroups);
 
   const toggleSection = useCallback(
     (key: string) => setCollapsed((current) => ({ ...current, [key]: !current[key] })),
@@ -200,6 +228,9 @@ export const App = () => {
       } else if (event.key === ',') {
         event.preventDefault();
         setIsSettingsOpen(true);
+      } else if (event.key === 'g') {
+        event.preventDefault();
+        setIsGroupEditorOpen(true);
       }
     };
 
@@ -230,27 +261,69 @@ export const App = () => {
     [settings],
   );
 
-  const vipReviews = snapshot ? visible(snapshot.vipReviews) : [];
-  const incomingReviews = snapshot ? visible(snapshot.incomingReviews) : [];
-  const dismissedReviews = snapshot ? visible(snapshot.dismissedReviews) : [];
-  const myBuckets = snapshot
-    ? bucketOrder.map((bucket) => ({ bucket, prs: visible(snapshot.myPrs[bucket]) }))
-    : [];
-  const myTotal = myBuckets.reduce((total, group) => total + group.prs.length, 0);
-  const hasAnything = vipReviews.length + incomingReviews.length + myTotal > 0;
+  // Membership is deliberately unfiltered: the search box must not look like PRs arrived or left,
+  // because this is also what drives group notifications.
+  const membership = useMemo<GroupMembership[] | undefined>(() => {
+    if (!snapshot || !settings) return undefined;
 
-  const renderCards = (list: PullRequest[], mode: 'incoming' | 'mine' | 'dismissed') =>
-    list.map((pullRequest) => (
-      <PrCard
-        key={pullRequest.id}
-        pullRequest={pullRequest}
-        showRequestSource={mode !== 'mine'}
-        isVipAuthor={isVipAuthor(pullRequest)}
-        {...(mode !== 'mine' ? { onToggleVip: toggleVip } : {})}
-        {...(mode === 'incoming' ? { onDismiss: dismiss } : {})}
-        {...(mode === 'dismissed' ? { onRestore: restore } : {})}
-      />
-    ));
+    const vips = new Set(settings.vips.map((login) => login.toLowerCase()));
+    const sources: Record<string, PullRequest[]> = {
+      incoming: snapshot.incoming,
+      mine: snapshot.mine,
+      all: [...snapshot.incoming, ...snapshot.mine],
+    };
+
+    return settings.groups.map((group) => ({
+      group,
+      prs: (sources[group.scope] ?? []).filter((pullRequest) =>
+        matchesTags(
+          tagsFor(pullRequest, vips.has((pullRequest.author?.login ?? '').toLowerCase())),
+          group.tags,
+        ),
+      ),
+    }));
+  }, [settings, snapshot]);
+
+  const notifications = useGroupNotifications(membership);
+
+  const reviewRequestIds = useMemo(
+    () =>
+      new Set(
+        snapshot ? [...snapshot.incoming, ...snapshot.dismissed].map((pullRequest) => pullRequest.id) : [],
+      ),
+    [snapshot],
+  );
+
+  const dismissedIds = useMemo(
+    () => new Set(snapshot ? snapshot.dismissed.map((pullRequest) => pullRequest.id) : []),
+    [snapshot],
+  );
+
+  const shownGroups = (membership ?? []).map((entry) => ({
+    group: entry.group,
+    prs: visible(entry.prs),
+  }));
+  const dismissedReviews = snapshot ? visible(snapshot.dismissed) : [];
+  const shownTotal = shownGroups.reduce((total, entry) => total + entry.prs.length, 0);
+
+  const renderCards = (list: PullRequest[]) =>
+    list.map((pullRequest) => {
+      const isReviewRequest = reviewRequestIds.has(pullRequest.id);
+      const isDismissed = dismissedIds.has(pullRequest.id);
+
+      return (
+        <PrCard
+          key={pullRequest.id}
+          pullRequest={pullRequest}
+          showRequestSource={isReviewRequest}
+          isVipAuthor={isVipAuthor(pullRequest)}
+          jiraBaseUrl={settings?.jiraBaseUrl ?? ''}
+          {...(isReviewRequest ? { onToggleVip: toggleVip } : {})}
+          {...(isReviewRequest && !isDismissed ? { onDismiss: dismiss } : {})}
+          {...(isDismissed ? { onRestore: restore } : {})}
+        />
+      );
+    });
 
   return (
     <div className="shell">
@@ -313,7 +386,7 @@ export const App = () => {
           title="Show the PRs you have set aside (d)"
         >
           Not reviewing
-          {snapshot && snapshot.dismissedReviews.length > 0 ? ` (${snapshot.dismissedReviews.length})` : ''}
+          {snapshot && snapshot.dismissed.length > 0 ? ` (${snapshot.dismissed.length})` : ''}
         </button>
       </div>
 
@@ -343,58 +416,61 @@ export const App = () => {
 
       {snapshot && (
         <>
-          {settings && settings.vips.length > 0 && (
+          {shownGroups.map((entry, index) => (
             <Section
-              title="VIP review requests"
-              count={vipReviews.length}
-              variant="vip"
-              isCollapsed={Boolean(collapsed.vip)}
-              onToggle={() => toggleSection('vip')}
+              key={entry.group.id}
+              title={entry.group.name}
+              count={entry.prs.length}
+              variant={entry.group.notifyOnNew ? 'vip' : 'default'}
+              notifies={entry.group.notifyOnNew}
+              isCollapsed={Boolean(collapsed[entry.group.id])}
+              onToggle={() => toggleSection(entry.group.id)}
+              isSettingsOpen={editingGroupId === entry.group.id}
+              onOpenSettings={() =>
+                setEditingGroupId((current) => (current === entry.group.id ? null : entry.group.id))
+              }
+              drag={{
+                isDragging: reorder.draggingId === entry.group.id,
+                isDropBefore: reorder.dropIndex === index,
+                isDropAfter:
+                  reorder.dropIndex === shownGroups.length && index === shownGroups.length - 1,
+                ref: reorder.register(entry.group.id),
+                onPointerDown: reorder.onPointerDown(entry.group.id),
+              }}
+              panel={
+                editingGroupId === entry.group.id ? (
+                  <div className="group-panel">
+                    <GroupRow
+                      group={entry.group}
+                      isPickerOpen
+                      onPatch={(changes) => patchGroup(entry.group.id, changes)}
+                      onRemove={() => removeGroup(entry.group.id)}
+                    />
+                    <p className="hint is-tight">Drag a group heading to reorder the page.</p>
+                  </div>
+                ) : null
+              }
             >
-              {vipReviews.length > 0 ? (
-                <div className="card-list">{renderCards(vipReviews, 'incoming')}</div>
+              {entry.prs.length > 0 ? (
+                <div className="card-list">{renderCards(entry.prs)}</div>
               ) : (
-                <div className="empty">Nothing from your VIPs right now.</div>
+                <div className="empty">Nothing in this group right now.</div>
               )}
             </Section>
+          ))}
+
+          {settings?.groups.length === 0 && (
+            <div className="zero-state">
+              <strong>You have no groups.</strong>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setIsGroupEditorOpen(true)}
+              >
+                Add one
+              </button>
+            </div>
           )}
-
-          <Section
-            title="Review requested"
-            count={incomingReviews.length}
-            isCollapsed={Boolean(collapsed.incoming)}
-            onToggle={() => toggleSection('incoming')}
-          >
-            {incomingReviews.length > 0 ? (
-              <div className="card-list">{renderCards(incomingReviews, 'incoming')}</div>
-            ) : (
-              <div className="empty">Your review queue is empty. Nice.</div>
-            )}
-          </Section>
-
-          <Section
-            title="My pull requests"
-            count={myTotal}
-            isCollapsed={Boolean(collapsed.mine)}
-            onToggle={() => toggleSection('mine')}
-          >
-            {myTotal > 0 ? (
-              myBuckets
-                .filter((group) => group.prs.length > 0)
-                .map((group) => (
-                  <div className="subgroup" key={group.bucket}>
-                    <div className="subgroup-head">
-                      <span className={`dot ${bucketMeta[group.bucket].dot}`} />
-                      {bucketMeta[group.bucket].label}
-                      <span className="count">{group.prs.length}</span>
-                    </div>
-                    <div className="card-list">{renderCards(group.prs, 'mine')}</div>
-                  </div>
-                ))
-            ) : (
-              <div className="empty">No open pull requests of your own.</div>
-            )}
-          </Section>
 
           {showDismissed && (
             <Section
@@ -404,19 +480,32 @@ export const App = () => {
               onToggle={() => toggleSection('dismissed')}
             >
               {dismissedReviews.length > 0 ? (
-                <div className="card-list">{renderCards(dismissedReviews, 'dismissed')}</div>
+                <div className="card-list">{renderCards(dismissedReviews)}</div>
               ) : (
                 <div className="empty">You have not set anything aside.</div>
               )}
             </Section>
           )}
 
-          {!hasAnything && (search || repoFilter !== 'all') && (
+          {shownTotal === 0 && (search || repoFilter !== 'all') && (
             <div className="zero-state">
               <strong>No pull requests match that filter.</strong>
               Clear the search or pick a different repository.
             </div>
           )}
+
+          <div className="page-actions">
+            <button
+              type="button"
+              className="wide-row-button"
+              onClick={() => setIsGroupEditorOpen(true)}
+              title="Add, rename, retag and reorder your groups (g)"
+            >
+              <GroupsIcon />
+              Edit groups
+              <kbd>g</kbd>
+            </button>
+          </div>
 
           <div className="meta-line">
             {snapshot.rateLimit && (
@@ -427,7 +516,8 @@ export const App = () => {
             )}
             {settings && <span>· auto refresh every {settings.pollSeconds}s</span>}
             <span>
-              · <kbd>r</kbd> refresh <kbd>/</kbd> search <kbd>d</kbd> dismissed <kbd>,</kbd> settings
+              · <kbd>r</kbd> refresh <kbd>/</kbd> search <kbd>d</kbd> dismissed <kbd>g</kbd> groups{' '}
+              <kbd>,</kbd> settings
             </span>
           </div>
         </>
@@ -439,8 +529,18 @@ export const App = () => {
         <SettingsDrawer
           settings={settings}
           stateFile={stateFile}
+          notifications={notifications}
           onClose={() => setIsSettingsOpen(false)}
           onChange={(patch) => void applySettings(patch)}
+          onEditGroups={() => setIsGroupEditorOpen(true)}
+        />
+      )}
+
+      {isGroupEditorOpen && settings && (
+        <GroupEditorModal
+          groups={settings.groups}
+          onSave={(groups) => void applySettings({ groups })}
+          onClose={() => setIsGroupEditorOpen(false)}
         />
       )}
     </div>

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { PullRequest } from '../../shared/types.js';
+import { jiraKeyFromTitle, jiraUrl } from '../../shared/jira.js';
+import type { PullRequest, ReviewState } from '../../shared/types.js';
 import { compactNumber, relativeAge, staleness } from '../format.js';
 import { ChecksPanel } from './ChecksPanel.js';
-import { MuteIcon, StarIcon, UndoIcon } from './Icons.js';
+import { BranchIcon, CheckIcon, CopyIcon, MuteIcon, StarIcon, UndoIcon } from './Icons.js';
 
 type BadgeTone = 'neutral' | 'green' | 'red' | 'amber' | 'purple' | 'accent' | 'gold';
 
@@ -31,7 +32,21 @@ const checkBadge = (pullRequest: PullRequest): Badge | null => {
   }
 };
 
-const reviewBadge = (pullRequest: PullRequest): Badge | null => {
+// One badge per side, so the card says the most blocking thing the review state contains rather
+// than every tag the group filters on.
+const reviewBadge = (side: 'humans' | 'bots', state: ReviewState): Badge => {
+  const badge = ((): { label: string; tone: BadgeTone } => {
+    if (state.hasUnresolvedThreads) return { label: 'unresolved threads', tone: 'purple' };
+    if (state.isApproved) return { label: 'approved', tone: 'green' };
+    if (state.stage === 'reviewed') return { label: 'reviewed', tone: 'accent' };
+    if (state.stage === 'awaiting') return { label: 'awaiting review', tone: 'amber' };
+    return { label: 'not requested', tone: 'neutral' };
+  })();
+
+  return { key: side, label: `${side}: ${badge.label}`, tone: badge.tone };
+};
+
+const approvalBadge = (pullRequest: PullRequest): Badge | null => {
   if (pullRequest.reviewDecision === 'APPROVED') {
     return {
       key: 'review',
@@ -53,8 +68,11 @@ const buildBadges = (pullRequest: PullRequest, showRequestSource: boolean): Badg
 
   if (pullRequest.isDraft) badges.push({ key: 'draft', label: 'draft', tone: 'neutral' });
 
-  const review = reviewBadge(pullRequest);
-  if (review) badges.push(review);
+  const approval = approvalBadge(pullRequest);
+  if (approval) badges.push(approval);
+
+  badges.push(reviewBadge('humans', pullRequest.humanReview));
+  badges.push(reviewBadge('bots', pullRequest.botReview));
 
   const checks = checkBadge(pullRequest);
   if (checks) badges.push(checks);
@@ -66,7 +84,7 @@ const buildBadges = (pullRequest: PullRequest, showRequestSource: boolean): Badg
   if (pullRequest.unresolvedThreadCount > 0) {
     badges.push({
       key: 'threads',
-      label: `${pullRequest.unresolvedThreadCount} open thread${pullRequest.unresolvedThreadCount === 1 ? '' : 's'}`,
+      label: `${pullRequest.unresolvedThreadCount} unresolved thread${pullRequest.unresolvedThreadCount === 1 ? '' : 's'}`,
       tone: 'purple',
     });
   }
@@ -90,6 +108,7 @@ export interface PrCardProps {
   pullRequest: PullRequest;
   showRequestSource: boolean;
   isVipAuthor: boolean;
+  jiraBaseUrl: string;
   onToggleVip?: (login: string) => void;
   onDismiss?: (pullRequest: PullRequest) => void;
   onRestore?: (pullRequest: PullRequest) => void;
@@ -99,15 +118,28 @@ export const PrCard = ({
   pullRequest,
   showRequestSource,
   isVipAuthor,
+  jiraBaseUrl,
   onToggleVip,
   onDismiss,
   onRestore,
 }: PrCardProps) => {
   const [isChecksOpen, setIsChecksOpen] = useState(false);
+  const [isBranchCopied, setIsBranchCopied] = useState(false);
   const badges = buildBadges(pullRequest, showRequestSource);
   const authorLogin = pullRequest.author?.login;
   const age = staleness(pullRequest.createdAt);
   const isChecksExpandable = hasFailingChecks(pullRequest);
+  const jiraKey = jiraBaseUrl ? jiraKeyFromTitle(pullRequest.title) : null;
+
+  const copyBranch = async () => {
+    try {
+      await navigator.clipboard.writeText(pullRequest.headRefName);
+      setIsBranchCopied(true);
+      window.setTimeout(() => setIsBranchCopied(false), 1400);
+    } catch {
+      /* clipboard blocked: leave the label alone rather than claim a copy that did not happen */
+    }
+  };
 
   return (
     <div className={`card-shell${isChecksOpen ? ' is-expanded' : ''}`}>
@@ -124,6 +156,20 @@ export const PrCard = ({
         <div className="card-sub">
           <span>{pullRequest.repository}</span>
           <span className="sep">#{pullRequest.number}</span>
+          {jiraKey && (
+            <>
+              <span className="sep">·</span>
+              <a
+                className="jira-link"
+                href={jiraUrl(jiraBaseUrl, jiraKey)}
+                target="_blank"
+                rel="noreferrer"
+                title={`Open ${jiraKey} in Jira`}
+              >
+                {jiraKey}
+              </a>
+            </>
+          )}
           {authorLogin && (
             <>
               <span className="sep">·</span>
@@ -144,6 +190,19 @@ export const PrCard = ({
             <span className="diff-del">−{compactNumber(pullRequest.deletions)}</span>{' '}
             <span>in {pullRequest.changedFiles} file{pullRequest.changedFiles === 1 ? '' : 's'}</span>
           </span>
+        </div>
+
+        <div className="card-sub">
+          <button
+            type="button"
+            className={`branch-chip${isBranchCopied ? ' is-copied' : ''}`}
+            title={`Copy ${pullRequest.headRefName}`}
+            onClick={() => void copyBranch()}
+          >
+            <BranchIcon />
+            <span className="branch-name">{pullRequest.headRefName}</span>
+            <span className="branch-hint">{isBranchCopied ? <CheckIcon /> : <CopyIcon />}</span>
+          </button>
         </div>
 
         <div className="badges">

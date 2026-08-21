@@ -31,6 +31,9 @@ interface Seed {
   deletions: number;
   changedFiles: number;
   isDraft?: boolean;
+  branch?: string;
+  humanReview?: PullRequest['humanReview'];
+  botReview?: PullRequest['botReview'];
   reviewDecision?: PullRequest['reviewDecision'];
   checkState?: PullRequest['checkState'];
   mergeable?: PullRequest['mergeable'];
@@ -41,11 +44,29 @@ interface Seed {
   isVip?: boolean;
 }
 
+const humanReviewFor = (seed: Seed): PullRequest['humanReview'] => {
+  const hasVerdict = seed.reviewDecision === 'APPROVED' || seed.reviewDecision === 'CHANGES_REQUESTED';
+  const hasThreads = (seed.unresolvedThreadCount ?? 0) > 0;
+
+  return {
+    stage: hasVerdict || hasThreads ? 'reviewed' : seed.isDraft ? 'notRequested' : 'awaiting',
+    hasUnresolvedThreads: hasThreads,
+    isApproved: seed.reviewDecision === 'APPROVED',
+  };
+};
+
+const botReviewFor = (seed: Seed): PullRequest['botReview'] => ({
+  stage: seed.isDraft ? 'notRequested' : 'reviewed',
+  hasUnresolvedThreads: false,
+  isApproved: !seed.isDraft,
+});
+
 const toPr = (seed: Seed): PullRequest => ({
   id: `demo-${seed.repository}-${seed.number}`,
   number: seed.number,
   title: seed.title,
   url: `https://github.com/${seed.repository}/pull/${seed.number}`,
+  headRefName: seed.branch ?? `${seed.author}/pr-${seed.number}`,
   isDraft: seed.isDraft ?? false,
   createdAt: hoursAgo(seed.openedHoursAgo),
   updatedAt: hoursAgo(seed.updatedHoursAgo),
@@ -65,13 +86,15 @@ const toPr = (seed: Seed): PullRequest => ({
   changesRequestedCount: seed.reviewDecision === 'CHANGES_REQUESTED' ? 1 : 0,
   unresolvedThreadCount: seed.unresolvedThreadCount ?? 0,
   myReviewState: null,
+  humanReview: seed.humanReview ?? humanReviewFor(seed),
+  botReview: seed.botReview ?? botReviewFor(seed),
   isVip: seed.isVip ?? false,
 });
 
 const vipReviews: Seed[] = [
   {
     number: 4821,
-    title: 'Cache tenant feature flags at the edge instead of per request',
+    title: 'PLAT-4821: Cache tenant feature flags at the edge instead of per request',
     author: 'marina-ok',
     repository: 'acme/platform',
     openedHoursAgo: 560,
@@ -116,7 +139,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 1190,
-    title: 'Sign messenger sessions with short-lived JWTs',
+    title: 'WEB-1190: Sign messenger sessions with short-lived JWTs',
     author: 'dperez',
     repository: 'acme/webapp',
     openedHoursAgo: 96,
@@ -128,6 +151,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 612,
+    botReview: { stage: 'awaiting', hasUnresolvedThreads: false, isApproved: false },
     title: 'Render assignee and group columns in the recurring task grid',
     author: 'sam-oakes',
     repository: 'acme/connectors',
@@ -140,6 +164,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 615,
+    botReview: { stage: 'notRequested', hasUnresolvedThreads: false, isApproved: false },
     title: 'Route knowledge base questions to the research agent',
     author: 'priya-n',
     repository: 'acme/connectors',
@@ -228,6 +253,7 @@ const mine: Seed[] = [
     approvalCount: 1,
     checkState: 'FAILURE',
     unresolvedThreadCount: 2,
+    botReview: { stage: 'reviewed', hasUnresolvedThreads: true, isApproved: false },
   },
   {
     number: 4844,
@@ -268,17 +294,9 @@ export const demoSnapshot = (vips: string[]): Snapshot => {
   return {
     viewer: { login: 'octo-dev', avatarUrl: avatarFor('octo-dev') },
     fetchedAt: new Date().toISOString(),
-    vipReviews: vipReviews.map(decorate),
-    incomingReviews: incomingReviews.map(decorate),
-    dismissedReviews: [],
-    myPrs: {
-      changesRequested: [],
-      awaitingReview: mineDecorated.filter(
-        (pr) => !pr.isDraft && pr.reviewDecision === 'REVIEW_REQUIRED',
-      ),
-      approved: mineDecorated.filter((pr) => !pr.isDraft && pr.reviewDecision === 'APPROVED'),
-      draft: mineDecorated.filter((pr) => pr.isDraft),
-    },
+    incoming: [...vipReviews, ...incomingReviews].map(decorate),
+    mine: mineDecorated,
+    dismissed: [],
     rateLimit: {
       remaining: 4862,
       limit: 5000,

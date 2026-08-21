@@ -71,3 +71,57 @@ export const MoonIcon = ({ size = 15, className }: IconProps) => (
     <path d="M9.6.3a.75.75 0 0 1 .3.98A5.5 5.5 0 0 0 15.4 9.5a.75.75 0 0 1 .9 1.05A7 7 0 1 1 8.6.1a.75.75 0 0 1 1 .2Z" />
   </svg>
 );
+
+export const BranchIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-2.25.75a2.25 2.25 0 1 1 3 2.122V5.5A2.5 2.5 0 0 1 10 8H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.492 2.492 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM3.5 12.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+  </svg>
+);
+
+export const PlusIcon = ({ size = 13, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M7.25 2.75a.75.75 0 0 1 1.5 0v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5Z" />
+  </svg>
+);
+
+export const ArrowUpIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M8 2.5a.75.75 0 0 1 .53.22l4 4a.75.75 0 0 1-1.06 1.06L8.75 5.06v8.19a.75.75 0 0 1-1.5 0V5.06L4.53 7.78a.75.75 0 0 1-1.06-1.06l4-4A.75.75 0 0 1 8 2.5Z" />
+  </svg>
+);
+
+export const ArrowDownIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M8 13.5a.75.75 0 0 1-.53-.22l-4-4a.75.75 0 0 1 1.06-1.06l2.72 2.72V2.75a.75.75 0 0 1 1.5 0v8.19l2.72-2.72a.75.75 0 0 1 1.06 1.06l-4 4a.75.75 0 0 1-.53.22Z" />
+  </svg>
+);
+
+export const BellIcon = ({ size = 13, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M8 1.5A3.5 3.5 0 0 0 4.5 5v2.382a1 1 0 0 1-.106.447L3.5 9.618V10.5h9V9.618l-.894-1.789A1 1 0 0 1 11.5 7.382V5A3.5 3.5 0 0 0 8 1.5ZM3 5a5 5 0 0 1 10 0v2.382l.894 1.789A1 1 0 0 1 14 9.618v1.132a1.25 1.25 0 0 1-1.25 1.25h-2.02a2.75 2.75 0 0 1-5.46 0H3.25A1.25 1.25 0 0 1 2 10.75V9.618a1 1 0 0 1 .106-.447L3 7.382V5Zm3.83 7a1.25 1.25 0 0 0 2.34 0h-2.34Z" />
+  </svg>
+);
+
+export const CopyIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M2.75 1A1.75 1.75 0 0 0 1 2.75v7c0 .966.784 1.75 1.75 1.75H4v1A1.75 1.75 0 0 0 5.75 14h7.5A1.75 1.75 0 0 0 15 12.25v-7A1.75 1.75 0 0 0 13.25 3.5H12v-.75A1.75 1.75 0 0 0 10.25 1h-7.5Zm7.75 2.5v-.75a.25.25 0 0 0-.25-.25h-7.5a.25.25 0 0 0-.25.25v7c0 .138.112.25.25.25H4V5.25A1.75 1.75 0 0 1 5.75 3.5h4.75Zm-4.75 1.5a.25.25 0 0 0-.25.25v7c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7a.25.25 0 0 0-.25-.25h-7.5Z" />
+  </svg>
+);
+
+export const CheckIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-6.5 6.5a.75.75 0 0 1-1.06 0l-3.25-3.25a.75.75 0 1 1 1.06-1.06l2.72 2.72 5.97-5.97a.75.75 0 0 1 1.06 0Z" />
+  </svg>
+);
+
+export const GripIcon = ({ size = 12, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M6 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm7-11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm1 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
+  </svg>
+);
+
+export const GroupsIcon = ({ size = 14, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M2 2.75A.75.75 0 0 1 2.75 2h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 2.75Zm0 4.5A.75.75 0 0 1 2.75 6.5h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 7.25Zm.75 3.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5Z" />
+  </svg>
+);

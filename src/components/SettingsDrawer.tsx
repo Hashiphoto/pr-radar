@@ -1,21 +1,43 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Settings } from '../../shared/types.js';
+import type { NotificationControls } from '../notifications.js';
 import { CloseIcon } from './Icons.js';
 
 export interface SettingsDrawerProps {
   settings: Settings;
   stateFile: string;
+  notifications: NotificationControls;
   onClose: () => void;
   onChange: (patch: Partial<Settings>) => void;
+  onEditGroups: () => void;
 }
 
-export const SettingsDrawer = ({ settings, stateFile, onClose, onChange }: SettingsDrawerProps) => {
+const notificationHint = (notifications: NotificationControls): string => {
+  if (!notifications.isSupported) return 'This browser cannot show desktop notifications.';
+  if (notifications.isBlocked)
+    return 'Notifications are blocked for this site. Allow them in your browser, then reload.';
+  return 'Groups marked Notify raise a desktop notification when a pull request lands in them. Only while this tab is open.';
+};
+
+export const SettingsDrawer = ({
+  settings,
+  stateFile,
+  notifications,
+  onClose,
+  onChange,
+  onEditGroups,
+}: SettingsDrawerProps) => {
   const [vipDraft, setVipDraft] = useState('');
   const [orgDraft, setOrgDraft] = useState('');
   const vipInputRef = useRef<HTMLInputElement>(null);
 
+  // Autofocus belongs to opening the drawer, not to every render: sharing an effect with the
+  // Escape handler stole the caret back on each keystroke elsewhere in the panel.
   useEffect(() => {
     vipInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -132,6 +154,32 @@ export const SettingsDrawer = ({ settings, stateFile, onClose, onChange }: Setti
           </div>
 
           <div className="field">
+            <span className="field-label">Groups</span>
+            <p className="hint">
+              Every group is a section on the dashboard, in this order. A pull request shows up in
+              each group it matches.
+            </p>
+            <button type="button" className="primary-button is-wide" onClick={onEditGroups}>
+              Edit groups ({settings.groups.length})
+            </button>
+          </div>
+
+          <div className="field">
+            <label htmlFor="jira-base-url">Jira base URL</label>
+            <input
+              id="jira-base-url"
+              className="text-input"
+              placeholder="https://your-org.atlassian.net/browse"
+              value={settings.jiraBaseUrl}
+              onChange={(event) => onChange({ jiraBaseUrl: event.target.value })}
+            />
+            <p className="hint">
+              Set this and each card links the issue key found in its title. Leave it empty to hide
+              the link.
+            </p>
+          </div>
+
+          <div className="field">
             <span className="field-label">Behavior</span>
             <label className="switch">
               <input
@@ -147,12 +195,15 @@ export const SettingsDrawer = ({ settings, stateFile, onClose, onChange }: Setti
             <label className="switch">
               <input
                 type="checkbox"
-                checked={settings.hideBotReviews}
-                onChange={(event) => onChange({ hideBotReviews: event.target.checked })}
+                checked={notifications.isOn}
+                disabled={!notifications.isSupported || notifications.isBlocked}
+                onChange={(event) =>
+                  event.target.checked ? void notifications.enable() : notifications.disable()
+                }
               />
               <span className="switch-text">
-                <strong>Ignore bot reviews</strong>
-                <span>Keep CodeRabbit and friends out of the approval counts.</span>
+                <strong>Desktop notifications</strong>
+                <span>{notificationHint(notifications)}</span>
               </span>
             </label>
           </div>
