@@ -2,6 +2,7 @@ import type {
   CheckState,
   MergeableState,
   MyReviewState,
+  PrState,
   PullRequest,
   ReviewDecision,
   Settings,
@@ -17,6 +18,7 @@ const prFields = `
   url
   headRefName
   isDraft
+  state
   createdAt
   updatedAt
   additions
@@ -43,13 +45,17 @@ const prFields = `
 `;
 
 const query = `
-query PrRadar($reviewRequested: String!, $authored: String!) {
+query PrRadar($reviewRequested: String!, $authored: String!, $merged: String!) {
   viewer { login avatarUrl }
   reviewRequested: search(query: $reviewRequested, type: ISSUE, first: 60) {
     issueCount
     nodes { ... on PullRequest { ${prFields} } }
   }
   authored: search(query: $authored, type: ISSUE, first: 60) {
+    issueCount
+    nodes { ... on PullRequest { ${prFields} } }
+  }
+  merged: search(query: $merged, type: ISSUE, first: 15) {
     issueCount
     nodes { ... on PullRequest { ${prFields} } }
   }
@@ -70,6 +76,7 @@ interface RawPullRequest {
   url: string;
   headRefName: string;
   isDraft: boolean;
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
   createdAt: string;
   updatedAt: string;
   additions: number;
@@ -102,6 +109,7 @@ interface SnapshotData {
   viewer: { login: string; avatarUrl: string };
   reviewRequested: SearchResult;
   authored: SearchResult;
+  merged: SearchResult;
   rateLimit: { remaining: number; limit: number; resetAt: string } | null;
 }
 
@@ -114,8 +122,17 @@ const isBot = (actor: RawActor | null | undefined): boolean => {
   return login.endsWith('[bot]') || knownBots.has(login.toLowerCase());
 };
 
-const buildSearchQuery = (base: string, orgs: string[]): string =>
-  [base, 'is:open', 'is:pr', 'archived:false', ...orgs.map((org) => `org:${org}`)].join(' ');
+const buildSearchQuery = (terms: string[], orgs: string[]): string =>
+  [...terms, 'is:pr', 'archived:false', ...orgs.map((org) => `org:${org}`)].join(' ');
+
+const stateOf = (raw: RawPullRequest): PrState => {
+  if (raw.state === 'MERGED') return 'merged';
+  if (raw.state === 'CLOSED') return 'closed';
+  return raw.isDraft ? 'draft' : 'ready';
+};
+
+const daysAgo = (days: number): string =>
+  new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 
 const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest => {
   // Bot verdicts have their own dimension, so the approval tally counts people only.
@@ -130,8 +147,11 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest =>
   const myReview = raw.reviews.nodes.find((review) => review.author?.login === viewerLogin);
   const isRequestedBot = (reviewer: { __typename: string; login?: string }) =>
     reviewer.__typename !== 'Team' && isBot(reviewer);
-  const hasHumanRequest = requestedLogins.some((reviewer) => !isRequestedBot(reviewer));
-  const hasBotRequest = requestedLogins.some(isRequestedBot);
+  // GitHub keeps a pending request on a pull request that has already merged, and a review
+  // nobody can still give must not read as one that is owed.
+  const isOpen = raw.state === 'OPEN';
+  const hasHumanRequest = isOpen && requestedLogins.some((reviewer) => !isRequestedBot(reviewer));
+  const hasBotRequest = isOpen && requestedLogins.some(isRequestedBot);
 
   return {
     id: raw.id,
@@ -139,7 +159,7 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest =>
     title: raw.title,
     url: raw.url,
     headRefName: raw.headRefName,
-    isDraft: raw.isDraft,
+    state: stateOf(raw),
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
     additions: raw.additions,
@@ -174,6 +194,10 @@ const byUpdatedDescending = (left: PullRequest, right: PullRequest): number =>
 const byOldestFirst = (left: PullRequest, right: PullRequest): number =>
   Date.parse(left.createdAt) - Date.parse(right.createdAt);
 
+// Recently merged pull requests exist so the Status column has a Merged value to show; the window
+// is short and the list capped, because this is a queue of live work rather than an archive.
+const mergedWindowDays = 14;
+
 export const fetchSnapshot = async (
   settings: Settings,
   dismissedIds: Set<string>,
@@ -183,8 +207,12 @@ export const fetchSnapshot = async (
     : 'user-review-requested:@me';
 
   const { data, warnings } = await githubGraphqlWithWarnings<SnapshotData>(query, {
-    reviewRequested: buildSearchQuery(reviewRequestedTerm, settings.orgs),
-    authored: buildSearchQuery('author:@me', settings.orgs),
+    reviewRequested: buildSearchQuery([reviewRequestedTerm, 'is:open'], settings.orgs),
+    authored: buildSearchQuery(['author:@me', 'is:open'], settings.orgs),
+    merged: buildSearchQuery(
+      ['author:@me', 'is:merged', `merged:>=${daysAgo(mergedWindowDays)}`, 'sort:updated-desc'],
+      settings.orgs,
+    ),
   });
 
   const viewerLogin = data.viewer.login;
@@ -201,7 +229,7 @@ export const fetchSnapshot = async (
   const incoming = mapNodes(data.reviewRequested.nodes).filter(
     (pullRequest) => pullRequest.author?.login !== viewerLogin,
   );
-  const mine = mapNodes(data.authored.nodes);
+  const mine = [...mapNodes(data.authored.nodes), ...mapNodes(data.merged.nodes)];
 
   // A silently truncated list reads as "you are all caught up", which is the one thing
   // this dashboard must never get wrong.

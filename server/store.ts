@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { canonicalTagId, knownTagIds } from '../shared/tags.js';
+import { filtersFromTags, normalizeFilters } from '../shared/columns.js';
 import type { DismissedEntry, Group, GroupScope, Settings } from '../shared/types.js';
 
 interface PersistedState {
@@ -10,9 +10,27 @@ interface PersistedState {
 }
 
 export const defaultGroups: Group[] = [
-  { id: 'vip', name: 'VIP review requests', scope: 'incoming', tags: ['vipAuthor'], notifyOnNew: true },
-  { id: 'incoming', name: 'Review requested', scope: 'incoming', tags: ['otherAuthor'], notifyOnNew: false },
-  { id: 'mine', name: 'My pull requests', scope: 'mine', tags: [], notifyOnNew: false },
+  {
+    id: 'vip',
+    name: 'VIP review requests',
+    scope: 'incoming',
+    filters: { author: ['vip'] },
+    notifyOnNew: true,
+  },
+  {
+    id: 'incoming',
+    name: 'Review requested',
+    scope: 'incoming',
+    filters: { author: ['other'] },
+    notifyOnNew: false,
+  },
+  {
+    id: 'mine',
+    name: 'My pull requests',
+    scope: 'mine',
+    filters: { status: ['draft', 'ready'] },
+    notifyOnNew: false,
+  },
 ];
 
 export const defaultSettings: Settings = {
@@ -21,6 +39,7 @@ export const defaultSettings: Settings = {
   orgs: [],
   includeTeamRequests: true,
   jiraBaseUrl: '',
+  botReviewComment: '@coderabbitai review',
   groups: defaultGroups,
 };
 
@@ -28,27 +47,18 @@ const scopes = new Set<GroupScope>(['incoming', 'mine', 'all']);
 
 const isScope = (value: unknown): value is GroupScope => scopes.has(value as GroupScope);
 
-// A group whose tags no longer exist would silently match nothing, so renamed ids are carried
-// across and ones that are truly gone are dropped rather than persisted.
+// Groups saved before the column filters were tags, and a group that silently matched nothing
+// would read as an empty queue, so the old tag sets are translated rather than dropped.
 const coerceGroup = (raw: unknown, index: number): Group | null => {
   if (typeof raw !== 'object' || raw === null) return null;
-  const group = raw as Partial<Group>;
+  const group = raw as Partial<Group> & { tags?: unknown };
   if (typeof group.name !== 'string' || group.name.trim().length === 0) return null;
 
   return {
     id: typeof group.id === 'string' && group.id.length > 0 ? group.id : `group-${index}`,
     name: group.name.trim(),
     scope: isScope(group.scope) ? group.scope : 'all',
-    tags: Array.isArray(group.tags)
-      ? [
-          ...new Set(
-            group.tags
-              .filter((tag): tag is string => typeof tag === 'string')
-              .map(canonicalTagId)
-              .filter((tag) => knownTagIds.has(tag)),
-          ),
-        ]
-      : [],
+    filters: group.filters ? normalizeFilters(group.filters) : filtersFromTags(group.tags),
     notifyOnNew: group.notifyOnNew === true,
   };
 };
@@ -82,6 +92,10 @@ const coerce = (raw: unknown): PersistedState => {
       orgs: Array.isArray(settings.orgs) ? settings.orgs.filter((org) => typeof org === 'string') : base.settings.orgs,
       includeTeamRequests: settings.includeTeamRequests ?? base.settings.includeTeamRequests,
       jiraBaseUrl: typeof settings.jiraBaseUrl === 'string' ? settings.jiraBaseUrl : base.settings.jiraBaseUrl,
+      botReviewComment:
+        typeof settings.botReviewComment === 'string'
+          ? settings.botReviewComment
+          : base.settings.botReviewComment,
       groups: coerceGroups(settings.groups, base.settings.groups),
     },
     dismissed: Array.isArray(parsed.dismissed)
@@ -143,6 +157,7 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
       orgs: normalizedOrgs,
       groups: patch.groups ? coerceGroups(patch.groups, current.settings.groups) : current.settings.groups,
       jiraBaseUrl: (patch.jiraBaseUrl ?? current.settings.jiraBaseUrl).trim(),
+      botReviewComment: (patch.botReviewComment ?? current.settings.botReviewComment).trim(),
       pollSeconds: Math.max(15, Math.round(patch.pollSeconds ?? current.settings.pollSeconds)),
     },
   };

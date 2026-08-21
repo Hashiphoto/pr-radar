@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { matchesTags, tagsFor } from '../shared/tags.js';
+import { columnValuesFor, matchesFilters } from '../shared/columns.js';
 import type { PullRequest, Settings, Snapshot } from '../shared/types.js';
 import * as api from './api.js';
 import { clockTime, timeUntil } from './format.js';
 import { useLocalStorage, useTheme, useTick } from './hooks.js';
+import type { PrEntry } from './entries.js';
 import { useGroupNotifications, type GroupMembership } from './notifications.js';
 import { GearIcon, GroupsIcon, MoonIcon, RefreshIcon, SunIcon } from './components/Icons.js';
 import { GroupEditorModal } from './components/GroupEditorModal.js';
 import { GroupRow } from './components/GroupRow.js';
-import { PrCard } from './components/PrCard.js';
+import { PrTable } from './components/PrTable.js';
 import { Section } from './components/Section.js';
 import { ServiceFooter } from './components/ServiceFooter.js';
 import { SettingsDrawer } from './components/SettingsDrawer.js';
@@ -43,6 +44,9 @@ const allPrs = (snapshot: Snapshot): PullRequest[] => [
   ...snapshot.mine,
   ...snapshot.dismissed,
 ];
+
+const byOldestFirst = (left: PullRequest, right: PullRequest): number =>
+  Date.parse(left.createdAt) - Date.parse(right.createdAt);
 
 export const App = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -243,49 +247,6 @@ export const App = () => {
     [snapshot],
   );
 
-  const visible = useCallback(
-    (list: PullRequest[]) =>
-      list.filter(
-        (pullRequest) =>
-          matchesSearch(pullRequest, search) &&
-          (repoFilter === 'all' || pullRequest.repository === repoFilter),
-      ),
-    [repoFilter, search],
-  );
-
-  const isVipAuthor = useCallback(
-    (pullRequest: PullRequest) =>
-      Boolean(
-        settings?.vips.some((entry) => entry.toLowerCase() === (pullRequest.author?.login ?? '').toLowerCase()),
-      ),
-    [settings],
-  );
-
-  // Membership is deliberately unfiltered: the search box must not look like PRs arrived or left,
-  // because this is also what drives group notifications.
-  const membership = useMemo<GroupMembership[] | undefined>(() => {
-    if (!snapshot || !settings) return undefined;
-
-    const vips = new Set(settings.vips.map((login) => login.toLowerCase()));
-    const sources: Record<string, PullRequest[]> = {
-      incoming: snapshot.incoming,
-      mine: snapshot.mine,
-      all: [...snapshot.incoming, ...snapshot.mine],
-    };
-
-    return settings.groups.map((group) => ({
-      group,
-      prs: (sources[group.scope] ?? []).filter((pullRequest) =>
-        matchesTags(
-          tagsFor(pullRequest, vips.has((pullRequest.author?.login ?? '').toLowerCase())),
-          group.tags,
-        ),
-      ),
-    }));
-  }, [settings, snapshot]);
-
-  const notifications = useGroupNotifications(membership);
-
   const reviewRequestIds = useMemo(
     () =>
       new Set(
@@ -299,31 +260,88 @@ export const App = () => {
     [snapshot],
   );
 
+  const visible = useCallback(
+    (entries: PrEntry[]) =>
+      entries.filter(
+        (entry) =>
+          matchesSearch(entry.pullRequest, search) &&
+          (repoFilter === 'all' || entry.pullRequest.repository === repoFilter) &&
+          (showDismissed || !dismissedIds.has(entry.pullRequest.id)),
+      ),
+    [dismissedIds, repoFilter, search, showDismissed],
+  );
+
+  // Every column value a row shows is also what its group filters on, so they are derived once and
+  // handed to both rather than recomputed per group.
+  const entriesById = useMemo<Map<string, PrEntry>>(() => {
+    if (!snapshot) return new Map();
+
+    const vips = new Set((settings?.vips ?? []).map((login) => login.toLowerCase()));
+    return new Map(
+      allPrs(snapshot).map((pullRequest) => [
+        pullRequest.id,
+        {
+          pullRequest,
+          values: columnValuesFor(
+            pullRequest,
+            vips.has((pullRequest.author?.login ?? '').toLowerCase()),
+          ),
+        },
+      ]),
+    );
+  }, [settings, snapshot]);
+
+  const entriesFor = useCallback(
+    (list: PullRequest[]): PrEntry[] =>
+      list.flatMap((pullRequest) => {
+        const entry = entriesById.get(pullRequest.id);
+        return entry ? [entry] : [];
+      }),
+    [entriesById],
+  );
+
+  // Membership is deliberately unfiltered: the search box must not look like PRs arrived or left,
+  // because this is also what drives group notifications.
+  const membership = useMemo<GroupMembership[] | undefined>(() => {
+    if (!snapshot || !settings) return undefined;
+
+    // Set-aside pull requests stay in the groups they belong to and are hidden by the toggle
+    // instead, so a group's definition means the same thing whether or not the toggle is on.
+    const incoming = [...snapshot.incoming, ...snapshot.dismissed].sort(byOldestFirst);
+    const sources: Record<string, PullRequest[]> = {
+      incoming,
+      mine: snapshot.mine,
+      all: [...incoming, ...snapshot.mine],
+    };
+
+    return settings.groups.map((group) => ({
+      group,
+      entries: entriesFor(sources[group.scope] ?? []).filter((entry) =>
+        matchesFilters(entry.values, group.filters),
+      ),
+    }));
+  }, [entriesFor, settings, snapshot]);
+
+  const notifications = useGroupNotifications(membership);
+
   const shownGroups = (membership ?? []).map((entry) => ({
     group: entry.group,
-    prs: visible(entry.prs),
+    entries: visible(entry.entries),
   }));
-  const dismissedReviews = snapshot ? visible(snapshot.dismissed) : [];
-  const shownTotal = shownGroups.reduce((total, entry) => total + entry.prs.length, 0);
+  const shownTotal = shownGroups.reduce((total, entry) => total + entry.entries.length, 0);
 
-  const renderCards = (list: PullRequest[]) =>
-    list.map((pullRequest) => {
-      const isReviewRequest = reviewRequestIds.has(pullRequest.id);
-      const isDismissed = dismissedIds.has(pullRequest.id);
-
-      return (
-        <PrCard
-          key={pullRequest.id}
-          pullRequest={pullRequest}
-          showRequestSource={isReviewRequest}
-          isVipAuthor={isVipAuthor(pullRequest)}
-          jiraBaseUrl={settings?.jiraBaseUrl ?? ''}
-          {...(isReviewRequest ? { onToggleVip: toggleVip } : {})}
-          {...(isReviewRequest && !isDismissed ? { onDismiss: dismiss } : {})}
-          {...(isDismissed ? { onRestore: restore } : {})}
-        />
-      );
-    });
+  const renderTable = (entries: PrEntry[]) => (
+    <PrTable
+      entries={entries}
+      reviewRequestIds={reviewRequestIds}
+      dismissedIds={dismissedIds}
+      jiraBaseUrl={settings?.jiraBaseUrl ?? ''}
+      botReviewComment={settings?.botReviewComment ?? ''}
+      onToggleVip={toggleVip}
+      onDismiss={dismiss}
+      onRestore={restore}
+    />
+  );
 
   return (
     <div className="shell">
@@ -383,7 +401,7 @@ export const App = () => {
           type="button"
           className={`icon-button${showDismissed ? ' is-active' : ''}`}
           onClick={() => setShowDismissed((current) => !current)}
-          title="Show the PRs you have set aside (d)"
+          title="Show the pull requests you have set aside, in the groups they belong to (d)"
         >
           Not reviewing
           {snapshot && snapshot.dismissed.length > 0 ? ` (${snapshot.dismissed.length})` : ''}
@@ -420,7 +438,7 @@ export const App = () => {
             <Section
               key={entry.group.id}
               title={entry.group.name}
-              count={entry.prs.length}
+              count={entry.entries.length}
               variant={entry.group.notifyOnNew ? 'vip' : 'default'}
               notifies={entry.group.notifyOnNew}
               isCollapsed={Boolean(collapsed[entry.group.id])}
@@ -451,8 +469,8 @@ export const App = () => {
                 ) : null
               }
             >
-              {entry.prs.length > 0 ? (
-                <div className="card-list">{renderCards(entry.prs)}</div>
+              {entry.entries.length > 0 ? (
+                renderTable(entry.entries)
               ) : (
                 <div className="empty">Nothing in this group right now.</div>
               )}
@@ -470,21 +488,6 @@ export const App = () => {
                 Add one
               </button>
             </div>
-          )}
-
-          {showDismissed && (
-            <Section
-              title="Not reviewing"
-              count={dismissedReviews.length}
-              isCollapsed={Boolean(collapsed.dismissed)}
-              onToggle={() => toggleSection('dismissed')}
-            >
-              {dismissedReviews.length > 0 ? (
-                <div className="card-list">{renderCards(dismissedReviews)}</div>
-              ) : (
-                <div className="empty">You have not set anything aside.</div>
-              )}
-            </Section>
           )}
 
           {shownTotal === 0 && (search || repoFilter !== 'all') && (

@@ -180,6 +180,21 @@ export const SettingsDrawer = ({
           </div>
 
           <div className="field">
+            <label htmlFor="bot-review-comment">Ask a bot for review</label>
+            <input
+              id="bot-review-comment"
+              className="text-input"
+              placeholder="@coderabbitai review"
+              value={settings.botReviewComment}
+              onChange={(event) => onChange({ botReviewComment: event.target.value })}
+            />
+            <p className="hint">
+              Turns Bot review <em>Not requested</em> into a button that comments this on the pull
+              request. Leave it empty to hide the button.
+            </p>
+          </div>
+
+          <div className="field">
             <span className="field-label">Behavior</span>
             <label className="switch">
               <input

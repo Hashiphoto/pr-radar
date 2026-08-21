@@ -31,6 +31,7 @@ interface Seed {
   deletions: number;
   changedFiles: number;
   isDraft?: boolean;
+  state?: PullRequest['state'];
   branch?: string;
   humanReview?: PullRequest['humanReview'];
   botReview?: PullRequest['botReview'];
@@ -44,20 +45,29 @@ interface Seed {
   isVip?: boolean;
 }
 
+const stateOf = (seed: Seed): PullRequest['state'] =>
+  seed.state ?? (seed.isDraft ? 'draft' : 'ready');
+
+// GitHub clears a review request once that reviewer weighs in, so a verdict and a pending request
+// only coexist when a second reviewer, usually a team, is still on the hook.
 const humanReviewFor = (seed: Seed): PullRequest['humanReview'] => {
   const hasVerdict = seed.reviewDecision === 'APPROVED' || seed.reviewDecision === 'CHANGES_REQUESTED';
   const hasThreads = (seed.unresolvedThreadCount ?? 0) > 0;
 
   return {
-    stage: hasVerdict || hasThreads ? 'reviewed' : seed.isDraft ? 'notRequested' : 'awaiting',
+    isRequested: stateOf(seed) === 'ready' && !hasVerdict && !hasThreads,
+    hasBeenReviewed: hasVerdict || hasThreads,
     hasUnresolvedThreads: hasThreads,
+    hasChangesRequested: seed.reviewDecision === 'CHANGES_REQUESTED',
     isApproved: seed.reviewDecision === 'APPROVED',
   };
 };
 
 const botReviewFor = (seed: Seed): PullRequest['botReview'] => ({
-  stage: seed.isDraft ? 'notRequested' : 'reviewed',
+  isRequested: false,
+  hasBeenReviewed: !seed.isDraft,
   hasUnresolvedThreads: false,
+  hasChangesRequested: false,
   isApproved: !seed.isDraft,
 });
 
@@ -67,7 +77,7 @@ const toPr = (seed: Seed): PullRequest => ({
   title: seed.title,
   url: `https://github.com/${seed.repository}/pull/${seed.number}`,
   headRefName: seed.branch ?? `${seed.author}/pr-${seed.number}`,
-  isDraft: seed.isDraft ?? false,
+  state: stateOf(seed),
   createdAt: hoursAgo(seed.openedHoursAgo),
   updatedAt: hoursAgo(seed.updatedHoursAgo),
   additions: seed.additions,
@@ -119,6 +129,13 @@ const vipReviews: Seed[] = [
     deletions: 51,
     changedFiles: 14,
     requestedTeams: ['storage'],
+    humanReview: {
+      isRequested: true,
+      hasBeenReviewed: true,
+      hasUnresolvedThreads: false,
+      hasChangesRequested: false,
+      isApproved: false,
+    },
     isVip: true,
   },
 ];
@@ -151,7 +168,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 612,
-    botReview: { stage: 'awaiting', hasUnresolvedThreads: false, isApproved: false },
+    botReview: { isRequested: true, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false },
     title: 'Render assignee and group columns in the recurring task grid',
     author: 'sam-oakes',
     repository: 'acme/connectors',
@@ -164,7 +181,7 @@ const incomingReviews: Seed[] = [
   },
   {
     number: 615,
-    botReview: { stage: 'notRequested', hasUnresolvedThreads: false, isApproved: false },
+    botReview: { isRequested: false, hasBeenReviewed: false, hasUnresolvedThreads: false, hasChangesRequested: false, isApproved: false },
     title: 'Route knowledge base questions to the research agent',
     author: 'priya-n',
     repository: 'acme/connectors',
@@ -249,11 +266,16 @@ const mine: Seed[] = [
     additions: 398,
     deletions: 54,
     changedFiles: 8,
-    reviewDecision: 'APPROVED',
-    approvalCount: 1,
+    reviewDecision: 'CHANGES_REQUESTED',
     checkState: 'FAILURE',
     unresolvedThreadCount: 2,
-    botReview: { stage: 'reviewed', hasUnresolvedThreads: true, isApproved: false },
+    botReview: {
+      isRequested: false,
+      hasBeenReviewed: true,
+      hasUnresolvedThreads: true,
+      hasChangesRequested: false,
+      isApproved: false,
+    },
   },
   {
     number: 4844,
@@ -279,6 +301,20 @@ const mine: Seed[] = [
     deletions: 11,
     changedFiles: 35,
     isDraft: true,
+  },
+  {
+    number: 4801,
+    title: 'PLAT-4801: Retire the legacy webhook dispatcher (S)',
+    author: 'octo-dev',
+    repository: 'acme/platform',
+    openedHoursAgo: 190,
+    updatedHoursAgo: 40,
+    additions: 96,
+    deletions: 1204,
+    changedFiles: 22,
+    state: 'merged',
+    reviewDecision: 'APPROVED',
+    approvalCount: 2,
   },
 ];
 

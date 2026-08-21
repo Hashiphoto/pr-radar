@@ -21,6 +21,7 @@ export interface ReviewSignals {
   isRequested: boolean;
   hasReviews: boolean;
   isApproved: boolean;
+  hasChangesRequested: boolean;
   openThreadCount: number;
   closedThreadCount: number;
 }
@@ -34,11 +35,13 @@ export interface SignalOptions {
 const hasBeenReviewed = (signals: ReviewSignals): boolean =>
   signals.hasReviews || signals.openThreadCount > 0 || signals.closedThreadCount > 0;
 
-// Approval and thread state are recorded alongside the stage rather than outranking it, so an
-// approved pull request with an open thread reads as both rather than as only one of them.
+// Every fact is recorded independently rather than ranked here, so a pull request that has been
+// reviewed once and still owes another review keeps both, and the column decides which to show.
 export const reviewStateFor = (signals: ReviewSignals): ReviewState => ({
-  stage: hasBeenReviewed(signals) ? 'reviewed' : signals.isRequested ? 'awaiting' : 'notRequested',
+  isRequested: signals.isRequested,
+  hasBeenReviewed: hasBeenReviewed(signals),
   hasUnresolvedThreads: signals.openThreadCount > 0,
+  hasChangesRequested: signals.hasChangesRequested,
   isApproved: signals.isApproved,
 });
 
@@ -53,6 +56,7 @@ export const signalsFor = (input: ReviewInput, options: SignalOptions): ReviewSi
     isApproved:
       latest.some((review) => review.state === 'APPROVED') &&
       !latest.some((review) => review.state === 'CHANGES_REQUESTED'),
+    hasChangesRequested: latest.some((review) => review.state === 'CHANGES_REQUESTED'),
     openThreadCount: threads.filter((thread) => !thread.isResolved && !thread.isOutdated).length,
     closedThreadCount: threads.filter((thread) => thread.isResolved || thread.isOutdated).length,
   };

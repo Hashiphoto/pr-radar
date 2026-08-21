@@ -14,7 +14,7 @@ export const GroupEditor = ({ groups, onChange }: GroupEditorProps) => {
 
   const add = () => {
     const id = nextGroupId(groups);
-    onChange([...groups, { id, name: 'New group', scope: 'all', tags: [], notifyOnNew: false }]);
+    onChange([...groups, { id, name: 'New group', scope: 'all', filters: {}, notifyOnNew: false }]);
     setOpenId(id);
   };
 

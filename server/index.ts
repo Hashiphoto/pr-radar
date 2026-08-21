@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { Settings } from '../shared/types.js';
 import { AzureDevOpsUnavailableError, retryBuild } from './azureDevops.js';
 import { fetchFailingChecks, rerequestCheckRun } from './checks.js';
+import { postComment } from './comments.js';
 import { demoChecks, demoService, demoSnapshot, isDemoMode } from './demoData.js';
 import { collectLiveIds, fetchSnapshot } from './github.js';
 import { describeService } from './serviceInfo.js';
@@ -105,6 +106,27 @@ app.post('/api/retry', async (request, response) => {
     }
 
     response.status(400).json({ error: 'Provide an Azure DevOps build or a GitHub check run' });
+  } catch (error) {
+    response.status(failureStatus(error)).json({ error: asMessage(error) });
+  }
+});
+
+// The comment body is whatever the viewer configured, so it is read from settings rather than
+// taken from the request: a page cannot talk this endpoint into posting something else.
+app.post('/api/bot-review', async (request, response) => {
+  try {
+    const owner = githubSlug('owner', request.body?.owner);
+    const repo = githubSlug('repo', request.body?.repo);
+    const number = positiveInteger('number', request.body?.number);
+    const { botReviewComment } = await getSettings();
+
+    if (botReviewComment.length === 0) {
+      response.status(400).json({ error: 'No bot review comment is configured' });
+      return;
+    }
+
+    if (!isDemoMode) await postComment(owner, repo, number, botReviewComment);
+    response.json({ message: `Commented on ${owner}/${repo} #${number}` });
   } catch (error) {
     response.status(failureStatus(error)).json({ error: asMessage(error) });
   }

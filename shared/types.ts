@@ -1,3 +1,5 @@
+import type { GroupFilters } from './columns.js';
+
 export type CheckState = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'ERROR' | 'EXPECTED' | null;
 
 export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
@@ -6,12 +8,16 @@ export type MergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN' | null;
 
 export type MyReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | null;
 
-export type ReviewStage = 'notRequested' | 'awaiting' | 'reviewed';
+export type PrState = 'draft' | 'ready' | 'merged' | 'closed';
 
-// Humans and bots get the same shape so a group can ask the same question of either.
+// Humans and bots get the same shape so a group can ask the same question of either. These are
+// independent facts rather than one stage, because a pull request that was reviewed once can still
+// owe another review, and collapsing the two loses the outstanding request.
 export interface ReviewState {
-  stage: ReviewStage;
+  isRequested: boolean;
+  hasBeenReviewed: boolean;
   hasUnresolvedThreads: boolean;
+  hasChangesRequested: boolean;
   isApproved: boolean;
 }
 
@@ -26,7 +32,7 @@ export interface PullRequest {
   title: string;
   url: string;
   headRefName: string;
-  isDraft: boolean;
+  state: PrState;
   createdAt: string;
   updatedAt: string;
   additions: number;
@@ -66,7 +72,7 @@ export interface Group {
   id: string;
   name: string;
   scope: GroupScope;
-  tags: string[];
+  filters: GroupFilters;
   notifyOnNew: boolean;
 }
 
@@ -76,6 +82,7 @@ export interface Settings {
   orgs: string[];
   includeTeamRequests: boolean;
   jiraBaseUrl: string;
+  botReviewComment: string;
   groups: Group[];
 }
 

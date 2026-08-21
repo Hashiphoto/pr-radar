@@ -13,20 +13,23 @@ A local dashboard for the pull requests that actually need you.
   the bottom of the page (<kbd>g</kbd>) opens the full editor, where nothing is saved until you
   say so. Ships with VIP review requests, Review requested and My pull requests; change them or
   throw them away.
-- **Tags** — each pull request is tagged along every dimension: ready/draft, VIP author,
-  approved, human review, bot review, checks and mergeability. A group is just a set of tags:
-  several in one dimension match any of them, tags in different dimensions must all match.
-- **Review state, split human from bot** — not requested, awaiting review, reviewed, unresolved
-  threads, no unresolved threads, approved — the same six for people and for bots, so a
-  CodeRabbit nit never reads as a human blocking you. They overlap on purpose: a pull request
-  can be reviewed *and* approved *and* still have a thread open, and each of those is its own
-  tag to filter on.
+- **One table, one row per pull request** — status, name, repo, Jira issue, author, checks,
+  human review and bot review, each its own column.
+- **Filters are the columns** — a group narrows any column to the values you pick from a
+  multi-select, and *All* is the default. Several values in one column match any of them;
+  different columns must all match. What a row shows is exactly what a group can filter on.
+- **Review state, split human from bot** — changes requested, unresolved threads, approved,
+  awaiting review, reviewed, not requested — the same six for people and for bots, so a
+  CodeRabbit nit never reads as a human blocking you. A pull request lands on the most blocking
+  value it owns, and a review still outstanding outranks one that already happened.
+- **Recently merged** — your merged pull requests from the last 14 days come along too, so
+  `Merged` is a status you can group on rather than one the table could never show.
 - **Per-group notifications** — mark any group *Notify* and get a desktop notification the
   moment a pull request lands in it.
-- **Branch name and Jira issue on every card** — click the branch to copy it; the issue key
-  in the title links straight to Jira.
+- **Branch name and Jira issue on every row** — click the branch to copy it; the issue key
+  in the title gets its own column, linked straight to Jira.
 - **Not going to review** — set a PR aside so it leaves the queue. Reversible any time.
-- **Failing checks, explained inline** — click a `checks failed` badge to see the failing tests
+- **Failing checks, explained inline** — click a `Failing` pill to expand the failing tests
   pulled straight out of the Azure Pipelines logs, then retry just the failed stage.
 - Light and dark themes, text and repo filters, keyboard shortcuts (<kbd>r</kbd> refresh,
   <kbd>/</kbd> search, <kbd>d</kbd> dismissed, <kbd>g</kbd> groups, <kbd>,</kbd> settings),
@@ -86,10 +89,10 @@ the panel still lists failing checks and links to Azure.
 prompt, then mark the groups you care about *Notify*. They fire while a PR Radar tab is open —
 the first load after a reload only establishes the baseline, so you are told about arrivals
 rather than about what was already waiting. Redefining a group re-establishes that baseline too,
-so widening its tags does not announce everything it sweeps in.
+so widening its filters does not announce everything it sweeps in.
 
 **Jira links.** Set *Jira base URL* in settings to something like
-`https://your-org.atlassian.net/browse`, and each card links the first issue key in its title.
+`https://your-org.atlassian.net/browse`, and the Jira column links the first issue key in each title.
 
 **A nicer URL.** Add this to `/etc/hosts` for <http://pr-radar.test:4317>:
 

@@ -59,4 +59,12 @@ export interface RetryTarget {
 export const retryChecks = (target: RetryTarget) =>
   request<RetryResult>('/retry', { method: 'POST', body: JSON.stringify(target) });
 
+export const requestBotReview = (repository: string, number: number) => {
+  const [owner, repo] = repository.split('/');
+  return request<RetryResult>('/bot-review', {
+    method: 'POST',
+    body: JSON.stringify({ owner, repo, number }),
+  });
+};
+
 export const fetchService = () => request<ServiceInfo>('/service');
