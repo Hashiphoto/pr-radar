@@ -25,11 +25,7 @@ const currentPermission = (): NotificationPermission =>
 // Redefining a group changes what belongs in it, so the signature is part of the key: a new
 // signature reseeds silently instead of announcing every PR the new definition sweeps in.
 const signatureOf = (group: Group): string =>
-  [
-    group.id,
-    group.scope,
-    ...COLUMNS.map((column) => (group.filters[column.id] ?? []).join('/')),
-  ].join('|');
+  [group.id, ...COLUMNS.map((column) => (group.filters[column.id] ?? []).join('/'))].join('|');
 
 const show = (title: string, body: string, tag: string, icon: string | undefined, url?: string) => {
   const notification = new Notification(title, { body, tag, icon });

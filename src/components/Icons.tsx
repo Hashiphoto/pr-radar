@@ -138,18 +138,6 @@ export const PrDraftIcon = ({ size = 15, className }: IconProps) => (
   </svg>
 );
 
-export const PrMergedIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z" />
-  </svg>
-);
-
-export const PrClosedIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 3.25 1Zm0 1.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM9.5 3.56 11.06 2 12 2.94 10.44 4.5 12 6.06 11.06 7 9.5 5.44 7.94 7 7 6.06 8.56 4.5 7 2.94 7.94 2 9.5 3.56Z" />
-  </svg>
-);
-
 export const ConflictIcon = ({ size = 13, className }: IconProps) => (
   <svg {...base(size, className)}>
     <path d="M8.4 1.4a.75.75 0 0 0-1.3 0l-6.2 11a.75.75 0 0 0 .65 1.12h12.4a.75.75 0 0 0 .65-1.12l-6.2-11ZM8 5.25a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm0 6.25a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Z" />

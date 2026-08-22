@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { Group } from '../shared/types.js';
 
 export const nextGroupId = (groups: Group[]): string => {
@@ -15,3 +16,8 @@ export const moveGroup = (groups: Group[], from: number, to: number): Group[] =>
   const without = groups.filter((_, index) => index !== from);
   return [...without.slice(0, to), moved, ...without.slice(to)];
 };
+
+// A group's hue reaches CSS as a custom property, so every tinted element derives its colors from
+// the same rules instead of each computing its own.
+export const hueStyle = (hue: number | null): CSSProperties | undefined =>
+  hue === null ? undefined : ({ '--group-hue': hue } as CSSProperties);

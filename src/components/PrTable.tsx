@@ -16,8 +16,9 @@ export const DEFAULT_WIDTHS: Record<string, number> = {
   jira: 100,
   author: 158,
   checks: 104,
-  human: 148,
-  bot: 148,
+  human: 150,
+  bot: 122,
+  feedback: 150,
   actions: 46,
 };
 
@@ -32,6 +33,7 @@ const LAYOUT: ColumnLayout[] = [
   { id: 'checks', label: 'Checks', minWidth: 68 },
   { id: 'human', label: 'Human review', minWidth: 80 },
   { id: 'bot', label: 'Bot review', minWidth: 80 },
+  { id: 'feedback', label: 'Feedback', minWidth: 80 },
   { id: 'actions', label: '', hiddenLabel: 'Actions', minWidth: 34 },
 ];
 

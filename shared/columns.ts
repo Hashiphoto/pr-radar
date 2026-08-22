@@ -2,7 +2,7 @@ import type { PullRequest, ReviewState } from './types.js';
 
 export type Tone = 'neutral' | 'green' | 'red' | 'amber' | 'purple' | 'accent' | 'gold';
 
-export type ColumnId = 'status' | 'author' | 'checks' | 'human' | 'bot';
+export type ColumnId = 'status' | 'author' | 'checks' | 'human' | 'bot' | 'feedback';
 
 export interface ColumnValue {
   id: string;
@@ -22,53 +22,12 @@ export interface ColumnDefinition {
 // A column left out entirely means "All", so a group only ever names the values it narrows to.
 export type GroupFilters = Partial<Record<ColumnId, string[]>>;
 
-// Verdicts coexist on purpose — a pull request can be approved and still have a thread open — so a
-// row carries every one it owns. Declaration order is display order, most blocking first, so the
-// first pill in the cell is the one to act on.
-const REVIEW_VALUES: ColumnValue[] = [
-  {
-    id: 'changesRequested',
-    label: 'Changes requested',
-    tone: 'red',
-    rule: 'The latest verdict from at least one reviewer asks for changes.',
-  },
-  {
-    id: 'unresolved',
-    label: 'Unresolved threads',
-    tone: 'purple',
-    rule: 'A review thread is open and not outdated. The count is threads on this side only.',
-  },
-  {
-    id: 'awaiting',
-    label: 'Awaiting review',
-    tone: 'amber',
-    rule: 'A review is requested and none has landed yet, so every request is still outstanding. Never shown beside a value that says a review landed.',
-  },
-  {
-    id: 'approved',
-    label: 'Approved',
-    tone: 'green',
-    rule: 'At least one latest verdict approves and none asks for changes. The count is how many approved.',
-  },
-  {
-    id: 'reviewed',
-    label: 'Reviewed',
-    tone: 'accent',
-    rule: 'A review landed and left nothing outstanding: no approval, no changes requested, no open thread.',
-  },
-  {
-    id: 'notRequested',
-    label: 'Not requested',
-    tone: 'neutral',
-    rule: 'Nothing requested and nothing ever reviewed.',
-  },
-];
-
-const humanNote =
-  'Counts people only, and never the author: answering a bot on your own pull request is recorded as a review, and a thread you opened is not feedback you are waiting on.';
-
-const botNote =
-  'Counts bots only, so a CodeRabbit nit never reads as a human blocking you. On a draft, Not requested is a button that asks the bot configured in settings.';
+// Every column answers one question, and exactly one of its values is true of any pull request.
+// That is what lets a set of groups be checked: each group is a box in this grid, and the boxes
+// either tile it or they do not.
+// Stated once for both sides, because a re-request means the same thing whoever was asked.
+const reRequestNote =
+  'A re-requested review supersedes what that reviewer said before: their earlier pass stops counting as landed, so the column reads Requested again.';
 
 export const COLUMNS: ColumnDefinition[] = [
   {
@@ -77,26 +36,113 @@ export const COLUMNS: ColumnDefinition[] = [
     values: [
       { id: 'draft', label: 'Draft', tone: 'neutral', rule: 'Open and marked as a draft.' },
       { id: 'ready', label: 'Ready', tone: 'green', rule: 'Open and out of draft.' },
-      {
-        id: 'merged',
-        label: 'Merged',
-        tone: 'purple',
-        rule: 'Yours, merged within the last 14 days. Anything older is never fetched, and pull requests closed without merging are not either.',
-      },
     ],
+    note: 'Merged and closed pull requests are never fetched, so every row is live work.',
   },
   {
     id: 'author',
     label: 'Author',
     values: [
       {
+        id: 'you',
+        label: 'You',
+        tone: 'accent',
+        rule: 'You opened it, so it is here whether or not anyone asked you to review it.',
+      },
+      {
         id: 'vip',
         label: 'VIP',
         tone: 'gold',
         rule: 'The author is on your VIP list. Star anyone in the Author column to put them there.',
       },
-      { id: 'other', label: 'Everyone else', tone: 'neutral', rule: 'Every other author.' },
+      {
+        id: 'other',
+        label: 'Everyone else',
+        tone: 'neutral',
+        rule: 'Somebody else wrote it and they are not a VIP.',
+      },
     ],
+  },
+  {
+    id: 'human',
+    label: 'Human review',
+    values: [
+      {
+        id: 'notRequested',
+        label: 'Not requested',
+        tone: 'neutral',
+        rule: 'No human review has been asked for and none has landed.',
+      },
+      {
+        id: 'requested',
+        label: 'Requested',
+        tone: 'amber',
+        rule: 'A human review is outstanding and nothing that still counts has landed.',
+      },
+      {
+        id: 'changesRequested',
+        label: 'Changes requested',
+        tone: 'red',
+        rule: 'At least one reviewer asks for changes, whatever anyone else said.',
+      },
+      {
+        id: 'approved',
+        label: 'Approved',
+        tone: 'green',
+        rule: 'At least one reviewer approved and nobody asks for changes. The count is how many approved.',
+      },
+      {
+        id: 'commented',
+        label: 'Commented',
+        tone: 'accent',
+        rule: 'Every review that still counts only commented: no approval, no changes requested.',
+      },
+    ],
+    note: `People only, and never the author: answering a bot on your own pull request is recorded as a review, and counting it would say a human had looked when none had. ${reRequestNote} Whether comments are still open is the Feedback column.`,
+  },
+  {
+    id: 'bot',
+    label: 'Bot review',
+    values: [
+      {
+        id: 'notRequested',
+        label: 'Not requested',
+        tone: 'neutral',
+        rule: 'No bot has been asked and none has run. On a draft, this cell is a button that asks the bot configured in settings.',
+      },
+      {
+        id: 'requested',
+        label: 'Requested',
+        tone: 'amber',
+        rule: 'A bot has been asked and has not answered since.',
+      },
+      {
+        id: 'completed',
+        label: 'Completed',
+        tone: 'purple',
+        rule: 'A bot has reviewed it. What it said is a verdict nobody merges on, so the column stops here and the Feedback column says whether anything is still open.',
+      },
+    ],
+    note: `Bots only, so a CodeRabbit nit never reads as a human blocking you. ${reRequestNote}`,
+  },
+  {
+    id: 'feedback',
+    label: 'Feedback',
+    values: [
+      {
+        id: 'unresolved',
+        label: 'Unresolved',
+        tone: 'purple',
+        rule: 'At least one review thread is open and not outdated. The count is how many.',
+      },
+      {
+        id: 'clear',
+        label: 'None',
+        tone: 'neutral',
+        rule: 'Nothing open: every thread is resolved or outdated, or there never was one.',
+      },
+    ],
+    note: 'People and bots together, since a thread is work to do either way, and never a thread the author started: a question you asked on your own pull request is not feedback you owe.',
   },
   {
     id: 'checks',
@@ -118,13 +164,10 @@ export const COLUMNS: ColumnDefinition[] = [
       { id: 'none', label: 'None', tone: 'neutral', rule: 'No checks reported for the newest commit.' },
     ],
   },
-  { id: 'human', label: 'Human review', values: REVIEW_VALUES, note: humanNote },
-  { id: 'bot', label: 'Bot review', values: REVIEW_VALUES, note: botNote },
 ];
 
-// Every column holds a list, even the ones that can only ever hold one value, so a row and a
-// group filter read the same shape whichever column they are asking about.
-export type ColumnValues = Record<ColumnId, string[]>;
+// One value per column, so a row and a group filter ask the same question of the same shape.
+export type ColumnValues = Record<ColumnId, string>;
 
 const valueIndex = new Map(
   COLUMNS.map((column) => [column.id, new Map(column.values.map((value) => [value.id, value]))]),
@@ -133,19 +176,30 @@ const valueIndex = new Map(
 export const columnValue = (column: ColumnId, id: string): ColumnValue | null =>
   valueIndex.get(column)?.get(id) ?? null;
 
-// Awaiting review means every request is still outstanding, so it never sits beside a value that
-// says a review already landed. Reviewed is in turn what is left once a review landed and said
-// nothing more specific, since the three verdicts already imply it.
-const reviewValues = (state: ReviewState): string[] => {
-  if (!state.hasBeenReviewed) return state.isRequested ? ['awaiting'] : ['notRequested'];
+export interface AuthorIdentity {
+  isMine: boolean;
+  isVip: boolean;
+}
 
-  const owned = [
-    state.hasChangesRequested ? 'changesRequested' : '',
-    state.hasUnresolvedThreads ? 'unresolved' : '',
-    state.isApproved ? 'approved' : '',
-  ].filter(Boolean);
+// One author per row, viewer first: a pull request of mine is mine even if I put myself on my own
+// VIP list, which keeps the three values a partition rather than an overlapping pair.
+const authorValue = (author: AuthorIdentity): string => {
+  if (author.isMine) return 'you';
+  return author.isVip ? 'vip' : 'other';
+};
 
-  return owned.length > 0 ? owned : ['reviewed'];
+// Changes requested outranks an approval because one reviewer asking for changes is the answer,
+// and an approval outranks a bare comment for the same reason.
+const humanValue = (state: ReviewState): string => {
+  if (state.hasChangesRequested) return 'changesRequested';
+  if (state.isApproved) return 'approved';
+  if (state.hasBeenReviewed) return 'commented';
+  return state.isRequested ? 'requested' : 'notRequested';
+};
+
+const botValue = (state: ReviewState): string => {
+  if (state.hasBeenReviewed) return 'completed';
+  return state.isRequested ? 'requested' : 'notRequested';
 };
 
 const checksValue = (checkState: PullRequest['checkState']): string => {
@@ -163,20 +217,43 @@ const checksValue = (checkState: PullRequest['checkState']): string => {
   }
 };
 
-export const columnValuesFor = (pullRequest: PullRequest, isVipAuthor: boolean): ColumnValues => ({
-  status: [pullRequest.state],
-  author: [isVipAuthor ? 'vip' : 'other'],
-  checks: [checksValue(pullRequest.checkState)],
-  human: reviewValues(pullRequest.humanReview),
-  bot: reviewValues(pullRequest.botReview),
+export const openThreadCount = (pullRequest: PullRequest): number =>
+  pullRequest.humanReview.openThreadCount + pullRequest.botReview.openThreadCount;
+
+export const columnValuesFor = (pullRequest: PullRequest, author: AuthorIdentity): ColumnValues => ({
+  status: pullRequest.state,
+  author: authorValue(author),
+  human: humanValue(pullRequest.humanReview),
+  bot: botValue(pullRequest.botReview),
+  feedback: openThreadCount(pullRequest) > 0 ? 'unresolved' : 'clear',
+  checks: checksValue(pullRequest.checkState),
 });
 
 export const matchesFilters = (values: ColumnValues, filters: GroupFilters): boolean =>
   COLUMNS.every((column) => {
     const selected = filters[column.id];
     if (!selected || selected.length === 0) return true;
-    return selected.some((value) => values[column.id].includes(value));
+    return selected.includes(values[column.id]);
   });
+
+// Ids that older configs still name, expanded into the values that replaced them: a value that
+// simply vanished would leave the group naming it wider than it was, or empty.
+const REPLACED_VALUE_IDS: Partial<Record<ColumnId, Record<string, string[]>>> = {
+  status: { merged: [] },
+  human: { awaiting: ['requested'], reviewed: ['commented'], unresolved: [] },
+  bot: {
+    awaiting: ['requested'],
+    reviewed: ['completed'],
+    approved: ['completed'],
+    changesRequested: ['completed'],
+    unresolved: [],
+  },
+};
+
+const expandReplaced = (column: ColumnId, selected: unknown[]): string[] =>
+  selected.flatMap((value) =>
+    typeof value === 'string' ? (REPLACED_VALUE_IDS[column]?.[value] ?? [value]) : [],
+  );
 
 // Selecting every value in a column is indistinguishable from selecting none, so it is stored as
 // none: the editor and the summary then have one shape to read rather than two.
@@ -188,7 +265,8 @@ export const normalizeFilters = (raw: unknown): GroupFilters => {
   for (const column of COLUMNS) {
     const selected = source[column.id];
     if (!Array.isArray(selected)) continue;
-    const kept = column.values.map((value) => value.id).filter((id) => selected.includes(id));
+    const expanded = expandReplaced(column.id, selected);
+    const kept = column.values.map((value) => value.id).filter((id) => expanded.includes(id));
     if (kept.length > 0 && kept.length < column.values.length) filters[column.id] = kept;
   }
 
@@ -205,7 +283,19 @@ export const describeFilters = (filters: GroupFilters): string => {
     return [`${column.label}: ${labels.join(' or ')}`];
   });
 
-  return parts.length > 0 ? parts.join(' + ') : 'every pull request in scope';
+  return parts.length > 0 ? parts.join(' + ') : 'every pull request';
+};
+
+// Groups used to name a source list — the pull requests awaiting my review, or the ones I wrote —
+// which the Author column now says outright, so an old scope becomes that filter rather than being
+// dropped and quietly widening the group to everything.
+export const filtersFromScope = (filters: GroupFilters, scope: unknown): GroupFilters => {
+  if (scope !== 'incoming' && scope !== 'mine') return filters;
+
+  // Under a mine scope, VIP or not was a question about the viewer's own pull requests, so the old
+  // selection has nothing left to say and the scope is the whole answer.
+  const author = scope === 'mine' ? ['you'] : (filters.author ?? ['vip', 'other']);
+  return normalizeFilters({ ...filters, author });
 };
 
 interface LegacyTag {

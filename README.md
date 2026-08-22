@@ -8,28 +8,40 @@ A local dashboard for the pull requests that actually need you.
 
 ## What it does
 
-- **Groups you define** — every section on the page is a group you can name, scope, filter,
+- **Groups you define** — every section on the page is a group you can name, filter,
   reorder by dragging its heading, and edit in place from its own gear button. *Edit groups* at
   the bottom of the page (<kbd>g</kbd>) opens the full editor, where nothing is saved until you
-  say so. Ships with VIP review requests, Review requested and My pull requests; change them or
-  throw them away.
+  say so. Ships with two sections for pull requests waiting on you — VIP PR reviews and PR Review
+  Requests — then one for each stage of your own work; change them or throw them away.
 - **One table, one row per pull request** — status, name, repo, Jira issue, author, checks,
-  human review and bot review, each its own column. Drag any column edge to resize it, double
-  click to reset; the name column takes whatever is left.
+  human review, bot review and feedback, each its own column. Drag any column edge to resize it,
+  double click to reset; the name column takes whatever is left.
+- **One value per column** — status, author, human review, bot review, feedback and checks each
+  ask one question, and exactly one of their values is true of any pull request. Nothing stacks,
+  so a set of groups either covers every pull request exactly once or it does not. The shipped set
+  does, and it is the flow your own work moves through: *Merge ready*, *Approved comments open*,
+  *Human reviewed*, *Awaiting human review*, *Bot reviewed*, *Drafts*, under the two sections for
+  everyone else's. Merged and closed pull requests are never fetched, so every row is live work.
 - **Filters are the columns** — a group narrows any column to the values you pick from a
   multi-select, and *All* is the default. Several values in one column match any of them;
   different columns must all match. What a row shows is exactly what a group can filter on.
-- **Review state, split human from bot** — changes requested, unresolved threads, awaiting
-  review, approved, reviewed, not requested — the same six for people and for bots, so a
-  CodeRabbit nit never reads as a human blocking you. *Awaiting review* means every request is
-  still outstanding, so it never appears next to a value that says a review already landed; the
-  verdicts do stack, because a pull request can be approved with a thread still open. The author
-  is not one of its own reviewers: answering a bot on your own pull request is recorded as a
+  Author is *You*, *VIP* or *Everyone else*, so a group asks for your own pull requests the
+  same way it asks for anything else rather than through a separate setting.
+- **Review state, split human from bot** — human review is *not requested*, *requested*,
+  *changes requested*, *approved* or *commented*: one reviewer asking for changes outranks an
+  approval, and an approval outranks a bare comment. Bot review stops at *not requested*,
+  *requested*, *completed*, because a bot's verdict is not one anybody merges on. The author is
+  not one of its own reviewers either: answering a bot on your own pull request is recorded as a
   review, and counting it would say a human had looked when none had.
-- **Recently merged** — your merged pull requests from the last 14 days come along too, so
-  `Merged` is a status you can group on rather than one the table could never show.
+- **Feedback is its own question** — *unresolved threads* or *none*, people and bots together,
+  because an open thread is work to do whoever opened it. Threads the author started do not
+  count: a question you asked on your own pull request is not feedback you owe. This is what
+  separates *Merge ready* from *Approved, comments open*.
 - **Per-group notifications** — mark any group *Notify* and get a desktop notification the
   moment a pull request lands in it.
+- **A color per group** — pick a hue and the whole group takes it: heading, count, table and
+  rows, in both themes from that one number. The hue is spelled out next to the slider, so the
+  same color can be given to another group; clear it to go back to the default.
 - **Branch name and Jira issue on every row** — click the branch to copy it; the issue key
   in the title gets its own column, linked straight to Jira.
 - **Not going to review** — set a pull request aside and it stops showing until you toggle

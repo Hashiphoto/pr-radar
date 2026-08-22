@@ -354,6 +354,69 @@ body.is-reordering .section-head.is-draggable {
   color: var(--gold);
 }
 
+/* Every tinted color is derived from the group's hue, once per theme, so picking a hue in one
+   theme cannot come out illegible in the other. */
+.is-tinted {
+  --group-tint: hsl(var(--group-hue) 58% 36%);
+  --group-tint-soft: hsl(var(--group-hue) 88% 94%);
+  --group-tint-edge: hsl(var(--group-hue) 50% 70%);
+  --group-tint-line: hsl(var(--group-hue) 42% 88%);
+  --group-tint-head: hsl(var(--group-hue) 70% 96%);
+  --group-tint-wash: hsl(var(--group-hue) 76% 99.2%);
+  --group-tint-mark: hsl(var(--group-hue) 72% 50%);
+}
+
+html[data-theme='dark'] .is-tinted {
+  --group-tint: hsl(var(--group-hue) 80% 74%);
+  --group-tint-soft: hsl(var(--group-hue) 42% 16%);
+  --group-tint-edge: hsl(var(--group-hue) 34% 32%);
+  --group-tint-line: hsl(var(--group-hue) 24% 22%);
+  --group-tint-head: hsl(var(--group-hue) 32% 17%);
+  --group-tint-wash: hsl(var(--group-hue) 26% 11%);
+}
+
+.section.is-tinted .section-head h2,
+.section.is-tinted .section-head .section-bell {
+  color: var(--group-tint);
+}
+
+.section.is-tinted .section-head .count {
+  background: var(--group-tint-soft);
+  border-color: var(--group-tint-edge);
+  color: var(--group-tint);
+}
+
+/* The hue carries through the whole group, so the table it heads reads as one block. */
+.section.is-tinted .pr-table {
+  border-color: var(--group-tint-edge);
+  background: var(--group-tint-wash);
+}
+
+.section.is-tinted .pr-table thead th {
+  border-bottom-color: var(--group-tint-edge);
+  background: var(--group-tint-head);
+  color: var(--group-tint);
+}
+
+.section.is-tinted .pr-table td {
+  border-top-color: var(--group-tint-line);
+}
+
+.section.is-tinted .pr-row:hover td,
+.section.is-tinted .pr-row.is-expanded td {
+  background: var(--group-tint-head);
+}
+
+.section.is-tinted .group-panel,
+.section.is-tinted .empty {
+  border-color: var(--group-tint-edge);
+}
+
+.section.is-tinted .empty {
+  background: var(--group-tint-wash);
+  color: var(--group-tint);
+}
+
 .chevron {
   margin-left: auto;
   color: var(--text-faint);
@@ -470,8 +533,6 @@ body.is-reordering .section-head.is-draggable {
 }
 
 .state-icon.is-ready { color: var(--green); }
-.state-icon.is-merged { color: var(--purple); }
-.state-icon.is-closed { color: var(--red); }
 .state-icon.is-conflict { color: var(--red); }
 
 .cell-name {
@@ -655,18 +716,6 @@ body.is-reordering .section-head.is-draggable {
 .pill-detail {
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
-}
-
-.pill-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-
-.pill-stack .pill {
-  height: 19px;
-  padding: 0 6px;
-  font-size: 10.5px;
 }
 
 .ghost-button {
@@ -1331,12 +1380,6 @@ kbd {
   margin-top: 8px;
 }
 
-.select.is-compact {
-  height: 28px;
-  min-width: 0;
-  font-size: 12px;
-}
-
 .inline-check {
   display: inline-flex;
   align-items: center;
@@ -1351,6 +1394,73 @@ kbd {
   height: 14px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+.hue-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hue-slider {
+  width: 78px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    hsl(0 72% 52%),
+    hsl(60 72% 52%),
+    hsl(120 72% 52%),
+    hsl(180 72% 52%),
+    hsl(240 72% 52%),
+    hsl(300 72% 52%),
+    hsl(360 72% 52%)
+  );
+  cursor: pointer;
+}
+
+/* A group with no color of its own says so: the track greys out and the thumb stops matching it. */
+.hue-picker:not(.is-tinted) .hue-slider {
+  filter: saturate(0.16);
+}
+
+.hue-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--group-tint-mark, var(--text-faint));
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+.hue-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--group-tint-mark, var(--text-faint));
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+/* The hue is spelled out as well as picked, so the same color can be given to another group. */
+.text-input.is-hue-value {
+  width: 52px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--group-tint, var(--text-muted));
 }
 
 .link-button {

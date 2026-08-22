@@ -294,17 +294,22 @@ export const App = () => {
     if (!snapshot) return new Map();
 
     const vips = new Set((settings?.vips ?? []).map((login) => login.toLowerCase()));
+    const viewer = snapshot.viewer.login.toLowerCase();
+
     return new Map(
-      allPrs(snapshot).map((pullRequest) => [
-        pullRequest.id,
-        {
-          pullRequest,
-          values: columnValuesFor(
+      allPrs(snapshot).map((pullRequest) => {
+        const login = (pullRequest.author?.login ?? '').toLowerCase();
+        return [
+          pullRequest.id,
+          {
             pullRequest,
-            vips.has((pullRequest.author?.login ?? '').toLowerCase()),
-          ),
-        },
-      ]),
+            values: columnValuesFor(pullRequest, {
+              isMine: login === viewer,
+              isVip: vips.has(login),
+            }),
+          },
+        ];
+      }),
     );
   }, [settings, snapshot]);
 
@@ -324,18 +329,19 @@ export const App = () => {
 
     // Set-aside pull requests stay in the groups they belong to and are hidden by the toggle
     // instead, so a group's definition means the same thing whether or not the toggle is on.
-    const incoming = [...snapshot.incoming, ...snapshot.dismissed].sort(byOldestFirst);
-    const sources: Record<string, PullRequest[]> = {
-      incoming,
-      mine: snapshot.mine,
-      all: [...incoming, ...snapshot.mine],
-    };
+    const requests = [...snapshot.incoming, ...snapshot.dismissed].sort(byOldestFirst);
+    const requestIds = new Set(requests.map((pullRequest) => pullRequest.id));
+
+    // Every group reads the same list and says who it wants in the Author column, so a pull request
+    // that is both mine and awaiting me is one row rather than two.
+    const relevant = [
+      ...requests,
+      ...snapshot.mine.filter((pullRequest) => !requestIds.has(pullRequest.id)),
+    ];
 
     return settings.groups.map((group) => ({
       group,
-      entries: entriesFor(sources[group.scope] ?? []).filter((entry) =>
-        matchesFilters(entry.values, group.filters),
-      ),
+      entries: entriesFor(relevant).filter((entry) => matchesFilters(entry.values, group.filters)),
     }));
   }, [entriesFor, settings, snapshot]);
 
@@ -467,6 +473,7 @@ export const App = () => {
               title={entry.group.name}
               count={entry.entries.length}
               variant={entry.group.notifyOnNew ? 'vip' : 'default'}
+              hue={entry.group.hue}
               notifies={entry.group.notifyOnNew}
               isCollapsed={Boolean(collapsed[entry.group.id])}
               onToggle={() => toggleSection(entry.group.id)}

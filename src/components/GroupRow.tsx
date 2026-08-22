@@ -1,6 +1,7 @@
 import { COLUMNS, describeFilters } from '../../shared/columns.js';
-import type { Group, GroupScope } from '../../shared/types.js';
+import type { Group } from '../../shared/types.js';
 import { ColumnFilter } from './ColumnFilter.js';
+import { HuePicker } from './HuePicker.js';
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon } from './Icons.js';
 
 export interface GroupRowProps {
@@ -13,12 +14,6 @@ export interface GroupRowProps {
   canMoveUp?: boolean;
   canMoveDown?: boolean;
 }
-
-export const scopeLabels: Record<GroupScope, string> = {
-  incoming: 'Awaiting my review',
-  mine: 'Authored by me',
-  all: 'Everything',
-};
 
 const narrowedCount = (group: Group): number =>
   COLUMNS.filter((column) => (group.filters[column.id] ?? []).length > 0).length;
@@ -76,19 +71,6 @@ export const GroupRow = ({
     </div>
 
     <div className="group-meta">
-      <select
-        className="select is-compact"
-        value={group.scope}
-        aria-label="Which pull requests this group draws from"
-        onChange={(event) => onPatch({ scope: event.target.value as GroupScope })}
-      >
-        {Object.entries(scopeLabels).map(([scope, label]) => (
-          <option key={scope} value={scope}>
-            {label}
-          </option>
-        ))}
-      </select>
-
       <label className="inline-check">
         <input
           type="checkbox"
@@ -97,6 +79,8 @@ export const GroupRow = ({
         />
         Notify
       </label>
+
+      <HuePicker hue={group.hue} onChange={(hue) => onPatch({ hue })} />
 
       {onTogglePicker && (
         <button type="button" className="link-button" onClick={onTogglePicker}>

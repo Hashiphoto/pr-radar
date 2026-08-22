@@ -1,35 +1,81 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { filtersFromTags, normalizeFilters } from '../shared/columns.js';
-import type { DismissedEntry, Group, GroupScope, Settings } from '../shared/types.js';
+import { filtersFromScope, filtersFromTags, normalizeFilters } from '../shared/columns.js';
+import { normalizeHue } from '../shared/hue.js';
+import type { DismissedEntry, Group, Settings } from '../shared/types.js';
 
 interface PersistedState {
   settings: Settings;
   dismissed: DismissedEntry[];
 }
 
+// Two sections for other people's pull requests, then one per stage of my own work. Every section
+// is a box in the column grid, and together they tile it: any open pull request matches exactly one.
 export const defaultGroups: Group[] = [
   {
     id: 'vip',
-    name: 'VIP review requests',
-    scope: 'incoming',
+    name: 'VIP PR reviews',
     filters: { author: ['vip'] },
     notifyOnNew: true,
+    hue: 43,
   },
   {
     id: 'incoming',
-    name: 'Review requested',
-    scope: 'incoming',
+    name: 'PR Review Requests',
     filters: { author: ['other'] },
     notifyOnNew: false,
+    hue: 214,
   },
   {
-    id: 'mine',
-    name: 'My pull requests',
-    scope: 'mine',
-    filters: { status: ['draft', 'ready'] },
+    id: 'mergeReady',
+    name: 'Merge ready',
+    filters: { author: ['you'], status: ['ready'], human: ['approved'], feedback: ['clear'] },
     notifyOnNew: false,
+    hue: 145,
+  },
+  {
+    id: 'approvedWithFeedback',
+    name: 'Approved, comments open',
+    filters: { author: ['you'], status: ['ready'], human: ['approved'], feedback: ['unresolved'] },
+    notifyOnNew: false,
+    hue: 94,
+  },
+  {
+    id: 'humanReviewed',
+    name: 'Human reviewed',
+    filters: {
+      author: ['you'],
+      status: ['ready'],
+      human: ['changesRequested', 'commented'],
+    },
+    notifyOnNew: false,
+    hue: 4,
+  },
+  {
+    id: 'awaitingHuman',
+    name: 'Awaiting human review',
+    filters: {
+      author: ['you'],
+      status: ['ready'],
+      human: ['notRequested', 'requested'],
+    },
+    notifyOnNew: false,
+    hue: 190,
+  },
+  {
+    id: 'botReviewed',
+    name: 'Bot reviewed',
+    filters: { author: ['you'], status: ['draft'], bot: ['completed'] },
+    notifyOnNew: false,
+    hue: 275,
+  },
+  {
+    id: 'drafts',
+    name: 'Drafts',
+    filters: { author: ['you'], status: ['draft'], bot: ['notRequested', 'requested'] },
+    notifyOnNew: false,
+    hue: null,
   },
 ];
 
@@ -43,23 +89,22 @@ export const defaultSettings: Settings = {
   groups: defaultGroups,
 };
 
-const scopes = new Set<GroupScope>(['incoming', 'mine', 'all']);
-
-const isScope = (value: unknown): value is GroupScope => scopes.has(value as GroupScope);
-
-// Groups saved before the column filters were tags, and a group that silently matched nothing
-// would read as an empty queue, so the old tag sets are translated rather than dropped.
+// Groups saved before the column filters were tags, and before a scope was an Author value, and a
+// group that silently matched nothing would read as an empty queue, so both are translated rather
+// than dropped.
 const coerceGroup = (raw: unknown, index: number): Group | null => {
   if (typeof raw !== 'object' || raw === null) return null;
-  const group = raw as Partial<Group> & { tags?: unknown };
+  const group = raw as Partial<Group> & { tags?: unknown; scope?: unknown };
   if (typeof group.name !== 'string' || group.name.trim().length === 0) return null;
+
+  const filters = group.filters ? normalizeFilters(group.filters) : filtersFromTags(group.tags);
 
   return {
     id: typeof group.id === 'string' && group.id.length > 0 ? group.id : `group-${index}`,
     name: group.name.trim(),
-    scope: isScope(group.scope) ? group.scope : 'all',
-    filters: group.filters ? normalizeFilters(group.filters) : filtersFromTags(group.tags),
+    filters: filtersFromScope(filters, group.scope),
     notifyOnNew: group.notifyOnNew === true,
+    hue: normalizeHue(group.hue),
   };
 };
 

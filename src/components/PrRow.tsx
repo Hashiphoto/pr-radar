@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { columnValue, type ColumnId, type ColumnValues } from '../../shared/columns.js';
+import { columnValue, openThreadCount, type ColumnId, type ColumnValues } from '../../shared/columns.js';
 import { jiraKeyFromTitle, jiraUrl } from '../../shared/jira.js';
 import type { PrState, PullRequest } from '../../shared/types.js';
 import * as api from '../api.js';
@@ -11,60 +11,39 @@ import {
   ConflictIcon,
   CopyIcon,
   MuteIcon,
-  PrClosedIcon,
   PrDraftIcon,
-  PrMergedIcon,
   PrOpenIcon,
   StarIcon,
   UndoIcon,
 } from './Icons.js';
 
-export const COLUMN_COUNT = 9;
+export const COLUMN_COUNT = 10;
 
-const StateIcon = ({ state }: { state: PrState }) => {
-  if (state === 'draft') return <PrDraftIcon />;
-  if (state === 'merged') return <PrMergedIcon />;
-  if (state === 'closed') return <PrClosedIcon />;
-  return <PrOpenIcon />;
-};
+const StateIcon = ({ state }: { state: PrState }) =>
+  state === 'draft' ? <PrDraftIcon /> : <PrOpenIcon />;
 
-const statusTitle = (state: PrState): string => {
-  const value = columnValue('status', state);
-  return value ? `${value.label} — ${value.rule}` : 'Closed without merging';
+const statusTitle = (status: string): string => {
+  const value = columnValue('status', status);
+  return value ? `${value.label} — ${value.rule}` : status;
 };
 
 const shortRepo = (repository: string): string => repository.split('/').pop() ?? repository;
 
-interface ValuePillsProps {
+interface ValuePillProps {
   column: ColumnId;
   values: ColumnValues;
-  counts?: Record<string, number>;
+  count?: number;
 }
 
-const ValuePills = ({ column, values, counts }: ValuePillsProps) => {
-  const owned = values[column].flatMap((id) => {
-    const value = columnValue(column, id);
-    return value ? [value] : [];
-  });
-
-  if (owned.length === 0) return <span className="cell-empty">—</span>;
+const ValuePill = ({ column, values, count = 0 }: ValuePillProps) => {
+  const value = columnValue(column, values[column]);
+  if (!value) return <span className="cell-empty">—</span>;
 
   return (
-    <div className="pill-stack">
-      {owned.map((value) => {
-        const count = counts?.[value.id] ?? 0;
-        return (
-          <span
-            key={value.id}
-            className={`pill is-${value.tone}`}
-            title={`${value.label} — ${value.rule}`}
-          >
-            {value.label}
-            {count > 1 && <span className="pill-detail">×{count}</span>}
-          </span>
-        );
-      })}
-    </div>
+    <span className={`pill is-${value.tone}`} title={`${value.label} — ${value.rule}`}>
+      {value.label}
+      {count > 1 && <span className="pill-detail">×{count}</span>}
+    </span>
   );
 };
 
@@ -100,16 +79,12 @@ export const PrRow = ({
   const [requestState, setRequestState] = useState<RequestState>('idle');
   const [requestError, setRequestError] = useState<string | null>(null);
   const authorLogin = pullRequest.author?.login;
-  const isVipAuthor = values.author.includes('vip');
+  const isVipAuthor = values.author === 'vip';
   const age = staleness(pullRequest.createdAt);
   const jiraKey = jiraBaseUrl ? jiraKeyFromTitle(pullRequest.title) : null;
-  const isChecksExpandable = values.checks.includes('failing');
-  const humanCounts = {
-    approved: pullRequest.approvalCount,
-    changesRequested: pullRequest.changesRequestedCount,
-    unresolved: pullRequest.humanReview.openThreadCount,
-  };
-  const botCounts = { unresolved: pullRequest.botReview.openThreadCount };
+  const isChecksExpandable = values.checks === 'failing';
+  const humanCount =
+    values.human === 'approved' ? pullRequest.approvalCount : pullRequest.changesRequestedCount;
 
   const copyBranch = async () => {
     try {
@@ -144,7 +119,7 @@ export const PrRow = ({
   const canAskForBotReview =
     botReviewComment.length > 0 &&
     pullRequest.state === 'draft' &&
-    values.bot.includes('notRequested');
+    values.bot === 'notRequested';
 
   const requestNote = [
     pullRequest.requestedFromMeDirectly ? 'requested from you' : '',
@@ -162,7 +137,7 @@ export const PrRow = ({
       >
         <td className="cell-status">
           <div className="status-stack">
-            <span className={`state-icon is-${pullRequest.state}`} title={statusTitle(pullRequest.state)}>
+            <span className={`state-icon is-${pullRequest.state}`} title={statusTitle(values.status)}>
               <StateIcon state={pullRequest.state} />
             </span>
             {pullRequest.mergeable === 'CONFLICTING' && (
@@ -261,12 +236,12 @@ export const PrRow = ({
               <span className="pill-caret">{isChecksOpen ? '▾' : '▸'}</span>
             </button>
           ) : (
-            <ValuePills column="checks" values={values} />
+            <ValuePill column="checks" values={values} />
           )}
         </td>
 
         <td className="cell-review">
-          <ValuePills column="human" values={values} counts={humanCounts} />
+          <ValuePill column="human" values={values} count={humanCount} />
         </td>
 
         <td className="cell-review">
@@ -288,8 +263,12 @@ export const PrRow = ({
               )}
             </button>
           ) : (
-            <ValuePills column="bot" values={values} counts={botCounts} />
+            <ValuePill column="bot" values={values} />
           )}
+        </td>
+
+        <td className="cell-review">
+          <ValuePill column="feedback" values={values} count={openThreadCount(pullRequest)} />
         </td>
 
         <td className="cell-actions">

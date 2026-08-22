@@ -8,7 +8,7 @@ export type MergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN' | null;
 
 export type MyReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | null;
 
-export type PrState = 'draft' | 'ready' | 'merged' | 'closed';
+export type PrState = 'draft' | 'ready';
 
 // Humans and bots get the same shape so a group can ask the same question of either. These are
 // independent facts rather than one stage, because a pull request that was reviewed once can still
@@ -66,14 +66,12 @@ export interface Snapshot {
   warnings: string[];
 }
 
-export type GroupScope = 'incoming' | 'mine' | 'all';
-
 export interface Group {
   id: string;
   name: string;
-  scope: GroupScope;
   filters: GroupFilters;
   notifyOnNew: boolean;
+  hue: number | null;
 }
 
 export interface Settings {

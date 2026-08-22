@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { hueStyle } from '../groups.js';
 import { BellIcon, ChevronIcon, GearIcon, GripIcon } from './Icons.js';
 
 export interface SectionDrag {
@@ -15,6 +16,7 @@ export interface SectionProps {
   isCollapsed: boolean;
   onToggle: () => void;
   variant?: 'default' | 'vip';
+  hue?: number | null;
   notifies?: boolean;
   isSettingsOpen?: boolean;
   onOpenSettings?: () => void;
@@ -38,6 +40,7 @@ export const Section = ({
   isCollapsed,
   onToggle,
   variant = 'default',
+  hue = null,
   notifies = false,
   isSettingsOpen = false,
   onOpenSettings,
@@ -47,7 +50,8 @@ export const Section = ({
 }: SectionProps) => (
   <section
     ref={drag?.ref}
-    className={`section${variant === 'vip' ? ' is-vip' : ''}${dragClasses(drag)}`}
+    className={`section${variant === 'vip' ? ' is-vip' : ''}${hue === null ? '' : ' is-tinted'}${dragClasses(drag)}`}
+    style={hueStyle(hue)}
   >
     <div className={`section-head${drag ? ' is-draggable' : ''}`} onPointerDown={drag?.onPointerDown}>
       {drag && <GripIcon className="section-grip" />}
