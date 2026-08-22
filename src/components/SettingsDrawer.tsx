@@ -134,7 +134,7 @@ export const SettingsDrawer = ({
                     title={`Remove ${login}`}
                     onClick={() => onChange({ vips: settings.vips.filter((entry) => entry !== login) })}
                   >
-                    <CloseIcon size={11} />
+                    <CloseIcon size={12} />
                   </button>
                 </span>
               ))}
@@ -170,7 +170,7 @@ export const SettingsDrawer = ({
                     title={`Remove ${org}`}
                     onClick={() => onChange({ orgs: settings.orgs.filter((entry) => entry !== org) })}
                   >
-                    <CloseIcon size={11} />
+                    <CloseIcon size={12} />
                   </button>
                 </span>
               ))}

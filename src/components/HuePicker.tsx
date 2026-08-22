@@ -41,7 +41,7 @@ export const HuePicker = ({ hue, onChange }: HuePickerProps) => (
       disabled={hue === null}
       onClick={() => onChange(null)}
     >
-      <UndoIcon size={11} />
+      <UndoIcon size={12} />
     </button>
   </div>
 );

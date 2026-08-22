@@ -1,151 +1,67 @@
+import {
+  ArrowDown,
+  ArrowUp,
+  Bell,
+  Check,
+  ChevronDown,
+  Copy,
+  EyeOff,
+  GitBranch,
+  GitPullRequest,
+  GitPullRequestDraft,
+  GripVertical,
+  Moon,
+  Plus,
+  RefreshCw,
+  Rows3,
+  Settings,
+  Star,
+  Sun,
+  TriangleAlert,
+  Undo2,
+  X,
+  CircleQuestionMark,
+  type LucideIcon,
+} from 'lucide-react';
+
 interface IconProps {
   size?: number;
   className?: string;
 }
 
-const base = (size: number, className?: string) => ({
-  width: size,
-  height: size,
-  viewBox: '0 0 16 16',
-  fill: 'currentColor',
-  'aria-hidden': true,
-  className,
-});
-
-export const RefreshIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 2.5a5.5 5.5 0 1 0 5.478 6.02.75.75 0 1 1 1.494.14A7 7 0 1 1 8 1a6.98 6.98 0 0 1 4.5 1.646V1.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1 0-1.5h1.36A5.48 5.48 0 0 0 8 2.5Z" />
-  </svg>
-);
-
-export const GearIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 10a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0-5.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
-    <path d="M6.94.75a.75.75 0 0 1 .74-.63h.64a.75.75 0 0 1 .74.63l.16 1.02a5.9 5.9 0 0 1 1.2.5l.83-.62a.75.75 0 0 1 .98.07l.45.45a.75.75 0 0 1 .07.98l-.61.83c.21.38.38.78.5 1.2l1.01.16a.75.75 0 0 1 .63.74v.64a.75.75 0 0 1-.63.74l-1.01.16a5.9 5.9 0 0 1-.5 1.2l.61.83a.75.75 0 0 1-.07.98l-.45.45a.75.75 0 0 1-.98.07l-.83-.61c-.38.21-.78.38-1.2.5l-.16 1.01a.75.75 0 0 1-.74.63h-.64a.75.75 0 0 1-.74-.63l-.16-1.01a5.9 5.9 0 0 1-1.2-.5l-.83.61a.75.75 0 0 1-.98-.07l-.45-.45a.75.75 0 0 1-.07-.98l.61-.83a5.9 5.9 0 0 1-.5-1.2L.75 8.86a.75.75 0 0 1-.63-.74V7.5a.75.75 0 0 1 .63-.74l1.01-.16c.12-.42.29-.82.5-1.2l-.61-.83a.75.75 0 0 1 .07-.98l.45-.45a.75.75 0 0 1 .98-.07l.83.61c.38-.21.78-.38 1.2-.5L6.94.75Z" opacity=".38" />
-  </svg>
-);
-
-export const StarIcon = ({ size = 15, className, filled = false }: IconProps & { filled?: boolean }) =>
-  filled ? (
-    <svg {...base(size, className)}>
-      <path d="M8 .5l2.06 4.42 4.69.6-3.44 3.24.87 4.74L8 11.2l-4.18 2.3.87-4.74L1.25 5.52l4.69-.6L8 .5Z" />
-    </svg>
-  ) : (
-    <svg {...base(size, className)} fill="none" stroke="currentColor" strokeWidth="1.4">
-      <path d="M8 1.4l1.87 4 4.13.52-3.03 2.86.77 4.16L8 10.86l-3.74 2.08.77-4.16L2 5.92l4.13-.52L8 1.4Z" />
-    </svg>
+// Even sizes only. These are drawn on a 24 unit grid, and an odd pixel size lands the strokes on
+// half pixels, which the refresh icon shows up as a wobble the moment it starts spinning.
+const icon = (Glyph: LucideIcon, defaultSize = 16) => {
+  const Icon = ({ size = defaultSize, className }: IconProps) => (
+    <Glyph size={size} className={className} aria-hidden />
   );
+  Icon.displayName = Glyph.displayName;
+  return Icon;
+};
 
-export const CloseIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
-  </svg>
-);
+export const RefreshIcon = icon(RefreshCw);
+export const GearIcon = icon(Settings);
+export const CloseIcon = icon(X);
+export const MuteIcon = icon(EyeOff);
+export const UndoIcon = icon(Undo2);
+export const ChevronIcon = icon(ChevronDown);
+export const SunIcon = icon(Sun);
+export const MoonIcon = icon(Moon);
+export const BranchIcon = icon(GitBranch);
+export const PlusIcon = icon(Plus);
+export const ArrowUpIcon = icon(ArrowUp);
+export const ArrowDownIcon = icon(ArrowDown);
+export const BellIcon = icon(Bell);
+export const CopyIcon = icon(Copy);
+export const CheckIcon = icon(Check);
+export const GripIcon = icon(GripVertical, 14);
+export const GroupsIcon = icon(Rows3, 14);
+export const PrOpenIcon = icon(GitPullRequest);
+export const PrDraftIcon = icon(GitPullRequestDraft);
+export const ConflictIcon = icon(TriangleAlert, 14);
+export const HelpIcon = icon(CircleQuestionMark);
 
-export const MuteIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 1.5A6.5 6.5 0 1 0 8 14.5 6.5 6.5 0 0 0 8 1.5ZM3 8a5 5 0 0 1 7.9-4.08L3.92 10.9A4.98 4.98 0 0 1 3 8Zm2.1 4.08 6.98-6.98A5 5 0 0 1 5.1 12.08Z" />
-  </svg>
-);
-
-export const UndoIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M2.75 3a.75.75 0 0 1 .75.75v1.6A6.5 6.5 0 1 1 1.5 9.9a.75.75 0 1 1 1.48-.25A5 5 0 1 0 4.6 5.5H6.5a.75.75 0 0 1 0 1.5h-3.75A.75.75 0 0 1 2 6.25v-2.5A.75.75 0 0 1 2.75 3Z" />
-  </svg>
-);
-
-export const ChevronIcon = ({ size = 14, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" />
-  </svg>
-);
-
-export const SunIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-4a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0Zm0 13a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13ZM0 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8Zm13 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 13 8ZM2.34 2.34a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 0 1-1.06 1.06L2.34 3.4a.75.75 0 0 1 0-1.06Zm9.2 9.2a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 1 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm2.12-9.2a.75.75 0 0 1 0 1.06L12.6 4.46a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0Zm-9.2 9.2a.75.75 0 0 1 0 1.06L3.4 13.66a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0Z" />
-  </svg>
-);
-
-export const MoonIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M9.6.3a.75.75 0 0 1 .3.98A5.5 5.5 0 0 0 15.4 9.5a.75.75 0 0 1 .9 1.05A7 7 0 1 1 8.6.1a.75.75 0 0 1 1 .2Z" />
-  </svg>
-);
-
-export const BranchIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-2.25.75a2.25 2.25 0 1 1 3 2.122V5.5A2.5 2.5 0 0 1 10 8H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.492 2.492 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM3.5 12.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-  </svg>
-);
-
-export const PlusIcon = ({ size = 13, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M7.25 2.75a.75.75 0 0 1 1.5 0v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5Z" />
-  </svg>
-);
-
-export const ArrowUpIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 2.5a.75.75 0 0 1 .53.22l4 4a.75.75 0 0 1-1.06 1.06L8.75 5.06v8.19a.75.75 0 0 1-1.5 0V5.06L4.53 7.78a.75.75 0 0 1-1.06-1.06l4-4A.75.75 0 0 1 8 2.5Z" />
-  </svg>
-);
-
-export const ArrowDownIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 13.5a.75.75 0 0 1-.53-.22l-4-4a.75.75 0 0 1 1.06-1.06l2.72 2.72V2.75a.75.75 0 0 1 1.5 0v8.19l2.72-2.72a.75.75 0 0 1 1.06 1.06l-4 4a.75.75 0 0 1-.53.22Z" />
-  </svg>
-);
-
-export const BellIcon = ({ size = 13, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 1.5A3.5 3.5 0 0 0 4.5 5v2.382a1 1 0 0 1-.106.447L3.5 9.618V10.5h9V9.618l-.894-1.789A1 1 0 0 1 11.5 7.382V5A3.5 3.5 0 0 0 8 1.5ZM3 5a5 5 0 0 1 10 0v2.382l.894 1.789A1 1 0 0 1 14 9.618v1.132a1.25 1.25 0 0 1-1.25 1.25h-2.02a2.75 2.75 0 0 1-5.46 0H3.25A1.25 1.25 0 0 1 2 10.75V9.618a1 1 0 0 1 .106-.447L3 7.382V5Zm3.83 7a1.25 1.25 0 0 0 2.34 0h-2.34Z" />
-  </svg>
-);
-
-export const CopyIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M2.75 1A1.75 1.75 0 0 0 1 2.75v7c0 .966.784 1.75 1.75 1.75H4v1A1.75 1.75 0 0 0 5.75 14h7.5A1.75 1.75 0 0 0 15 12.25v-7A1.75 1.75 0 0 0 13.25 3.5H12v-.75A1.75 1.75 0 0 0 10.25 1h-7.5Zm7.75 2.5v-.75a.25.25 0 0 0-.25-.25h-7.5a.25.25 0 0 0-.25.25v7c0 .138.112.25.25.25H4V5.25A1.75 1.75 0 0 1 5.75 3.5h4.75Zm-4.75 1.5a.25.25 0 0 0-.25.25v7c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7a.25.25 0 0 0-.25-.25h-7.5Z" />
-  </svg>
-);
-
-export const CheckIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-6.5 6.5a.75.75 0 0 1-1.06 0l-3.25-3.25a.75.75 0 1 1 1.06-1.06l2.72 2.72 5.97-5.97a.75.75 0 0 1 1.06 0Z" />
-  </svg>
-);
-
-export const GripIcon = ({ size = 12, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M6 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm7-11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm1 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
-  </svg>
-);
-
-export const GroupsIcon = ({ size = 14, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M2 2.75A.75.75 0 0 1 2.75 2h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 2.75Zm0 4.5A.75.75 0 0 1 2.75 6.5h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 7.25Zm.75 3.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5Z" />
-  </svg>
-);
-
-export const PrOpenIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-  </svg>
-);
-
-export const PrDraftIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M3.25 1a2.25 2.25 0 0 1 .75 4.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 3.25 1Zm9.5 14a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm.75 8.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0-4.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Zm0-3.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-  </svg>
-);
-
-export const ConflictIcon = ({ size = 13, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8.4 1.4a.75.75 0 0 0-1.3 0l-6.2 11a.75.75 0 0 0 .65 1.12h12.4a.75.75 0 0 0 .65-1.12l-6.2-11ZM8 5.25a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm0 6.25a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Z" />
-  </svg>
-);
-
-export const HelpIcon = ({ size = 15, className }: IconProps) => (
-  <svg {...base(size, className)}>
-    <path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm5.32-2.4a2.7 2.7 0 0 1 2.7-1.85c1.6 0 2.85 1.02 2.85 2.4 0 1.02-.56 1.6-1.32 2.08-.5.32-.7.52-.7.87v.4a.75.75 0 0 1-1.5 0v-.4c0-1.1.63-1.66 1.3-2.09.6-.38.72-.6.72-.86 0-.44-.53-.9-1.35-.9-.68 0-1.14.34-1.3.79a.75.75 0 0 1-1.4-.53ZM8 12.25a.95.95 0 1 1 0-1.9.95.95 0 0 1 0 1.9Z" />
-  </svg>
+// The only icon with two states: a starred author is filled, everyone else gets the outline.
+export const StarIcon = ({ size = 16, className, filled = false }: IconProps & { filled?: boolean }) => (
+  <Star size={size} className={className} aria-hidden fill={filled ? 'currentColor' : 'none'} />
 );

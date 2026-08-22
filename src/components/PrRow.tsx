@@ -215,7 +215,7 @@ export const PrRow = ({
                   title={isVipAuthor ? `Remove ${authorLogin} from VIPs` : `Add ${authorLogin} to VIPs`}
                   onClick={() => onToggleVip(authorLogin)}
                 >
-                  <StarIcon size={13} filled={isVipAuthor} />
+                  <StarIcon size={14} filled={isVipAuthor} />
                 </button>
               )}
             </div>

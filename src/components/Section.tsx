@@ -67,7 +67,7 @@ export const Section = ({
             title={isSettingsOpen ? 'Close group settings' : `Settings for ${title}`}
             onClick={onOpenSettings}
           >
-            <GearIcon size={13} />
+            <GearIcon size={14} />
           </button>
         )}
         <button
