@@ -9,7 +9,6 @@ import {
   GitBranch,
   GitPullRequest,
   GitPullRequestDraft,
-  GripVertical,
   Moon,
   Plus,
   RefreshCw,
@@ -54,7 +53,6 @@ export const ArrowDownIcon = icon(ArrowDown);
 export const BellIcon = icon(Bell);
 export const CopyIcon = icon(Copy);
 export const CheckIcon = icon(Check);
-export const GripIcon = icon(GripVertical, 14);
 export const GroupsIcon = icon(Rows3, 14);
 export const PrOpenIcon = icon(GitPullRequest);
 export const PrDraftIcon = icon(GitPullRequestDraft);

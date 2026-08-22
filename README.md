@@ -8,8 +8,8 @@ A local dashboard for the pull requests that actually need you.
 
 ## What it does
 
-- **Groups you define** — every section on the page is a group you can name, filter,
-  reorder by dragging its heading, and edit in place from its own gear button. *Edit groups* at
+- **Groups you define** — every section on the page is a group you can name, filter, reorder,
+  and edit in place from its own gear button. *Edit groups* at
   the bottom of the page (<kbd>g</kbd>) opens the full editor, where nothing is saved until you
   say so. Ships with two sections for pull requests waiting on you — VIP PR reviews and PR Review
   Requests — then one for each stage of your own work; change them or throw them away.

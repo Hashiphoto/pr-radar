@@ -14,8 +14,6 @@ import { DEFAULT_WIDTHS, PrTable } from './components/PrTable.js';
 import { Section } from './components/Section.js';
 import { ServiceFooter } from './components/ServiceFooter.js';
 import { SettingsDrawer } from './components/SettingsDrawer.js';
-import { moveGroup } from './groups.js';
-import { useReorder } from './reorder.js';
 
 const matchesSearch = (pullRequest: PullRequest, term: string): boolean => {
   if (!term) return true;
@@ -198,17 +196,6 @@ export const App = () => {
     },
     [applySettings, settings],
   );
-
-  const reorderGroups = useCallback(
-    (from: number, to: number) => {
-      if (!settings) return;
-      void applySettings({ groups: moveGroup(settings.groups, from, to) });
-    },
-    [applySettings, settings],
-  );
-
-  const groupIds = useMemo(() => (settings?.groups ?? []).map((group) => group.id), [settings]);
-  const reorder = useReorder(groupIds, reorderGroups);
 
   // Every group renders its own table, so the widths live here: dragging one heading has to move
   // the same column in all of them or the page stops reading as one table.
@@ -467,7 +454,7 @@ export const App = () => {
 
       {snapshot && (
         <>
-          {shownGroups.map((entry, index) => (
+          {shownGroups.map((entry) => (
             <Section
               key={entry.group.id}
               title={entry.group.name}
@@ -481,14 +468,6 @@ export const App = () => {
               onOpenSettings={() =>
                 setEditingGroupId((current) => (current === entry.group.id ? null : entry.group.id))
               }
-              drag={{
-                isDragging: reorder.draggingId === entry.group.id,
-                isDropBefore: reorder.dropIndex === index,
-                isDropAfter:
-                  reorder.dropIndex === shownGroups.length && index === shownGroups.length - 1,
-                ref: reorder.register(entry.group.id),
-                onPointerDown: reorder.onPointerDown(entry.group.id),
-              }}
               panel={
                 editingGroupId === entry.group.id ? (
                   <div className="group-panel">
@@ -498,7 +477,7 @@ export const App = () => {
                       onPatch={(changes) => patchGroup(entry.group.id, changes)}
                       onRemove={() => removeGroup(entry.group.id)}
                     />
-                    <p className="hint is-tight">Drag a group heading to reorder the page.</p>
+                    <p className="hint is-tight">Reorder the page from Edit groups (g).</p>
                   </div>
                 ) : null
               }

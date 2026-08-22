@@ -247,17 +247,6 @@ a {
   user-select: none;
 }
 
-.section-head.is-draggable {
-  cursor: grab;
-  touch-action: none;
-}
-
-body.is-reordering,
-body.is-reordering .section-head.is-draggable {
-  cursor: grabbing;
-  user-select: none;
-}
-
 .section-controls {
   display: flex;
   align-items: center;
@@ -268,41 +257,6 @@ body.is-reordering .section-head.is-draggable {
 
 .section-controls .chevron {
   margin-left: 0;
-}
-
-.section-grip {
-  flex: none;
-  color: var(--text-faint);
-  opacity: 0;
-  cursor: grab;
-  transition: opacity 120ms;
-}
-
-.section-head:hover .section-grip {
-  opacity: 1;
-}
-
-.section.is-dragging {
-  opacity: 0.45;
-}
-
-.section.is-drop-before::before,
-.section.is-drop-after::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-}
-
-.section.is-drop-before::before {
-  top: -8px;
-}
-
-.section.is-drop-after::after {
-  bottom: 12px;
 }
 
 .icon-button.is-tiny-square {

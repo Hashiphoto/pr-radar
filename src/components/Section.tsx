@@ -1,14 +1,6 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { hueStyle } from '../groups.js';
-import { BellIcon, ChevronIcon, GearIcon, GripIcon } from './Icons.js';
-
-export interface SectionDrag {
-  isDragging: boolean;
-  isDropBefore: boolean;
-  isDropAfter: boolean;
-  ref: (element: HTMLElement | null) => void;
-  onPointerDown: (event: ReactPointerEvent) => void;
-}
+import { BellIcon, ChevronIcon, GearIcon } from './Icons.js';
 
 export interface SectionProps {
   title: string;
@@ -20,19 +12,9 @@ export interface SectionProps {
   notifies?: boolean;
   isSettingsOpen?: boolean;
   onOpenSettings?: () => void;
-  drag?: SectionDrag;
   panel?: ReactNode;
   children: ReactNode;
 }
-
-const dragClasses = (drag: SectionDrag | undefined): string => {
-  if (!drag) return '';
-  return [
-    drag.isDragging ? ' is-dragging' : '',
-    drag.isDropBefore ? ' is-drop-before' : '',
-    drag.isDropAfter ? ' is-drop-after' : '',
-  ].join('');
-};
 
 export const Section = ({
   title,
@@ -44,17 +26,14 @@ export const Section = ({
   notifies = false,
   isSettingsOpen = false,
   onOpenSettings,
-  drag,
   panel,
   children,
 }: SectionProps) => (
   <section
-    ref={drag?.ref}
-    className={`section${variant === 'vip' ? ' is-vip' : ''}${hue === null ? '' : ' is-tinted'}${dragClasses(drag)}`}
+    className={`section${variant === 'vip' ? ' is-vip' : ''}${hue === null ? '' : ' is-tinted'}`}
     style={hueStyle(hue)}
   >
-    <div className={`section-head${drag ? ' is-draggable' : ''}`} onPointerDown={drag?.onPointerDown}>
-      {drag && <GripIcon className="section-grip" />}
+    <div className="section-head">
       <h2>{title}</h2>
       {notifies && <BellIcon className="section-bell" />}
       <span className="count">{count}</span>
