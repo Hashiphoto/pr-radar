@@ -432,7 +432,6 @@ html[data-theme='dark'] .is-tinted {
 
 .pr-table {
   width: 100%;
-  min-width: 1080px;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;

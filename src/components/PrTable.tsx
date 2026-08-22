@@ -22,11 +22,15 @@ export const DEFAULT_WIDTHS: Record<string, number> = {
   actions: 46,
 };
 
+// A title needs this much to be worth reading, and the name column has no width of its own to
+// defend it, so the floor is applied to the table and the row scrolls sideways rather than squeeze.
+const NAME_MIN_WIDTH = 300;
+
 // The name column is the only one without a width, so it absorbs whatever the others leave and
 // dragging one edge moves that column alone rather than everything to its right.
 const LAYOUT: ColumnLayout[] = [
   { id: 'status', label: '', hiddenLabel: 'Status', minWidth: 40 },
-  { id: 'name', label: 'Pull request', minWidth: 0 },
+  { id: 'name', label: 'Pull request', minWidth: NAME_MIN_WIDTH },
   { id: 'repo', label: 'Repo', minWidth: 60 },
   { id: 'jira', label: 'Jira', minWidth: 56 },
   { id: 'author', label: 'Author', minWidth: 70 },
@@ -79,9 +83,17 @@ export const PrTable = ({
     onResize(column.id, Math.max(column.minWidth, drag.startWidth + event.clientX - drag.startX));
   };
 
+  // Derived rather than a constant in CSS, so resizing a column moves the floor with it instead of
+  // letting the name column fall through a number that no longer matches the others.
+  const minTableWidth =
+    LAYOUT.filter((column) => column.id !== 'name').reduce(
+      (total, column) => total + widthOf(column),
+      0,
+    ) + NAME_MIN_WIDTH;
+
   return (
     <div className="pr-table-scroll">
-      <table className="pr-table">
+      <table className="pr-table" style={{ minWidth: minTableWidth }}>
         <colgroup>
           {LAYOUT.map((column) => (
             <col
