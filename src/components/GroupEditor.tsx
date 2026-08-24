@@ -24,8 +24,8 @@ export const GroupEditor = ({ groups, onChange }: GroupEditorProps) => {
         <GroupRow
           key={group.id}
           group={group}
-          isPickerOpen={openId === group.id}
-          onTogglePicker={() => setOpenId((current) => (current === group.id ? null : group.id))}
+          isEditing={openId === group.id}
+          onToggleEditing={() => setOpenId((current) => (current === group.id ? null : group.id))}
           onPatch={(changes) =>
             onChange(groups.map((entry) => (entry.id === group.id ? { ...entry, ...changes } : entry)))
           }

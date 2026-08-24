@@ -22,10 +22,7 @@ export const COLUMN_COUNT = 10;
 const StateIcon = ({ state }: { state: PrState }) =>
   state === 'draft' ? <PrDraftIcon /> : <PrOpenIcon />;
 
-const statusTitle = (status: string): string => {
-  const value = columnValue('status', status);
-  return value ? `${value.label} — ${value.rule}` : status;
-};
+const statusTitle = (status: string): string => columnValue('status', status)?.rule ?? status;
 
 const shortRepo = (repository: string): string => repository.split('/').pop() ?? repository;
 
@@ -40,7 +37,7 @@ const ValuePill = ({ column, values, count = 0 }: ValuePillProps) => {
   if (!value) return <span className="cell-empty">—</span>;
 
   return (
-    <span className={`pill is-${value.tone}`} title={`${value.label} — ${value.rule}`}>
+    <span className={`pill is-${value.tone}`} title={value.rule}>
       {value.label}
       {count > 1 && <span className="pill-detail">×{count}</span>}
     </span>

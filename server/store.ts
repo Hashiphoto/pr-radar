@@ -25,7 +25,7 @@ export const defaultGroups: Group[] = [
     name: 'PR Review Requests',
     filters: { author: ['other'] },
     notifyOnNew: false,
-    hue: 214,
+    hue: 25,
   },
   {
     id: 'mergeReady',
@@ -39,7 +39,7 @@ export const defaultGroups: Group[] = [
     name: 'Approved, comments open',
     filters: { author: ['you'], status: ['ready'], human: ['approved'], feedback: ['unresolved'] },
     notifyOnNew: false,
-    hue: 94,
+    hue: 280,
   },
   {
     id: 'humanReviewed',
@@ -50,7 +50,7 @@ export const defaultGroups: Group[] = [
       human: ['changesRequested', 'commented'],
     },
     notifyOnNew: false,
-    hue: 4,
+    hue: 265,
   },
   {
     id: 'awaitingHuman',
@@ -61,14 +61,14 @@ export const defaultGroups: Group[] = [
       human: ['notRequested', 'requested'],
     },
     notifyOnNew: false,
-    hue: 190,
+    hue: null,
   },
   {
     id: 'botReviewed',
     name: 'Bot reviewed',
     filters: { author: ['you'], status: ['draft'], bot: ['completed'] },
     notifyOnNew: false,
-    hue: 275,
+    hue: 250,
   },
   {
     id: 'drafts',
@@ -79,6 +79,10 @@ export const defaultGroups: Group[] = [
   },
 ];
 
+// Accounts that review as a plain User, so neither the Bot type nor a `[bot]` login suffix
+// gives them away. Anything GitHub already types as a bot is recognized without being listed.
+export const defaultBots = ['coderabbitai', 'unblocked', 'github-actions', 'dependabot', 'sonarcloud'];
+
 export const defaultSettings: Settings = {
   vips: [],
   pollSeconds: 120,
@@ -86,7 +90,22 @@ export const defaultSettings: Settings = {
   includeTeamRequests: true,
   jiraBaseUrl: '',
   botReviewComment: '@coderabbitai review',
+  bots: defaultBots,
   groups: defaultGroups,
+};
+
+// GitHub logins are matched case-insensitively, so two spellings of one account are one entry:
+// keeping both would put a duplicate chip on the panel that no amount of removing clears.
+const normalizeLogins = (logins: string[]): string[] => {
+  const byKey = new Map<string, string>();
+
+  for (const raw of logins) {
+    const login = raw.trim().replace(/^@/, '');
+    const key = login.toLowerCase();
+    if (login.length > 0 && !byKey.has(key)) byKey.set(key, login);
+  }
+
+  return [...byKey.values()];
 };
 
 // Groups saved before the column filters were tags, and before a scope was an Author value, and a
@@ -141,6 +160,9 @@ const coerce = (raw: unknown): PersistedState => {
         typeof settings.botReviewComment === 'string'
           ? settings.botReviewComment
           : base.settings.botReviewComment,
+      bots: Array.isArray(settings.bots)
+        ? settings.bots.filter((login) => typeof login === 'string')
+        : base.settings.bots,
       groups: coerceGroups(settings.groups, base.settings.groups),
     },
     dismissed: Array.isArray(parsed.dismissed)
@@ -186,9 +208,8 @@ export const getSettings = async (): Promise<Settings> => (await loadState()).se
 
 export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> => {
   const current = await loadState();
-  const normalizedVips = patch.vips
-    ? [...new Set(patch.vips.map((login) => login.trim().replace(/^@/, '')).filter(Boolean))]
-    : current.settings.vips;
+  const normalizedVips = patch.vips ? normalizeLogins(patch.vips) : current.settings.vips;
+  const normalizedBots = patch.bots ? normalizeLogins(patch.bots) : current.settings.bots;
   const normalizedOrgs = patch.orgs
     ? [...new Set(patch.orgs.map((org) => org.trim()).filter(Boolean))]
     : current.settings.orgs;
@@ -204,9 +225,20 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
       groups: patch.groups ? coerceGroups(patch.groups, current.settings.groups) : current.settings.groups,
       jiraBaseUrl: (patch.jiraBaseUrl ?? current.settings.jiraBaseUrl).trim(),
       botReviewComment: (patch.botReviewComment ?? current.settings.botReviewComment).trim(),
+      bots: normalizedBots,
       pollSeconds: Math.max(15, Math.round(patch.pollSeconds ?? current.settings.pollSeconds)),
     },
   };
+
+  await persist(next);
+  return next.settings;
+};
+
+// Set-aside pull requests are not a setting and survive the reset, the same way importing a
+// config file leaves them alone.
+export const resetSettings = async (): Promise<Settings> => {
+  const current = await loadState();
+  const next: PersistedState = { ...current, settings: { ...defaultSettings } };
 
   await persist(next);
   return next.settings;

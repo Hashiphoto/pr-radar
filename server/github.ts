@@ -38,7 +38,6 @@ const prFields = `
   reviewThreads(first: 100) {
     nodes {
       isResolved
-      isOutdated
       comments(first: 1) { nodes { author { __typename login } } }
     }
   }
@@ -90,7 +89,6 @@ interface RawPullRequest {
   reviewThreads: {
     nodes: {
       isResolved: boolean;
-      isOutdated: boolean;
       comments: { nodes: { author: RawActor | null }[] };
     }[];
   };
@@ -108,13 +106,19 @@ interface SnapshotData {
   rateLimit: { remaining: number; limit: number; resetAt: string } | null;
 }
 
-const knownBots = new Set(['coderabbitai', 'unblocked', 'github-actions', 'dependabot', 'sonarcloud']);
+type BotMatcher = (actor: RawActor | null | undefined) => boolean;
 
-const isBot = (actor: RawActor | null | undefined): boolean => {
-  if (!actor) return false;
-  if (actor.__typename === 'Bot') return true;
-  const login = actor.login ?? '';
-  return login.endsWith('[bot]') || knownBots.has(login.toLowerCase());
+// GitHub types its own apps as Bot, and an app acting as a user gets a `[bot]` login suffix.
+// Reviewers like CodeRabbit are plain Users with plain logins, so those are named in settings.
+const botMatcherFor = (logins: string[]): BotMatcher => {
+  const named = new Set(logins.map((login) => login.trim().replace(/^@/, '').toLowerCase()));
+
+  return (actor) => {
+    if (!actor) return false;
+    if (actor.__typename === 'Bot') return true;
+    const login = actor.login ?? '';
+    return login.endsWith('[bot]') || named.has(login.toLowerCase());
+  };
 };
 
 const buildSearchQuery = (terms: string[], orgs: string[]): string =>
@@ -122,7 +126,7 @@ const buildSearchQuery = (terms: string[], orgs: string[]): string =>
 
 const stateOf = (raw: RawPullRequest): PrState => (raw.isDraft ? 'draft' : 'ready');
 
-const toPullRequest = (raw: RawPullRequest, viewerLogin: string): PullRequest => {
+const toPullRequest = (raw: RawPullRequest, viewerLogin: string, isBot: BotMatcher): PullRequest => {
   // Bot verdicts have their own dimension, so the approval tally counts people only.
   const authorLogin = raw.author?.login ?? null;
   const countableReviews = raw.latestOpinionatedReviews.nodes.filter(
@@ -198,12 +202,13 @@ export const fetchSnapshot = async (
 
   const viewerLogin = data.viewer.login;
   const vipSet = new Set(settings.vips.map((login) => login.toLowerCase()));
+  const isBot = botMatcherFor(settings.bots);
 
   const mapNodes = (nodes: (RawPullRequest | null)[]): PullRequest[] =>
     nodes
       .filter((node): node is RawPullRequest => node !== null)
       .map((node) => {
-        const pullRequest = toPullRequest(node, viewerLogin);
+        const pullRequest = toPullRequest(node, viewerLogin, isBot);
         return { ...pullRequest, isVip: vipSet.has(pullRequest.author?.login.toLowerCase() ?? '') };
       });
 

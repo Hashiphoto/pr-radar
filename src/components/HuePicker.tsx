@@ -1,13 +1,14 @@
 import { DEFAULT_HUE, HUE_MAX, HUE_MIN, normalizeHue } from '../../shared/hue.js';
 import { hueStyle } from '../groups.js';
-import { UndoIcon } from './Icons.js';
+import { CheckIcon, UndoIcon } from './Icons.js';
 
 export interface HuePickerProps {
   hue: number | null;
   onChange: (hue: number | null) => void;
+  onDone?: () => void;
 }
 
-export const HuePicker = ({ hue, onChange }: HuePickerProps) => (
+export const HuePicker = ({ hue, onChange, onDone }: HuePickerProps) => (
   <div className={`hue-picker${hue === null ? '' : ' is-tinted'}`} style={hueStyle(hue)}>
     <input
       type="range"
@@ -43,5 +44,11 @@ export const HuePicker = ({ hue, onChange }: HuePickerProps) => (
     >
       <UndoIcon size={12} />
     </button>
+
+    {onDone && (
+      <button type="button" className="icon-button is-tiny-square" title="Done" onClick={onDone}>
+        <CheckIcon size={12} />
+      </button>
+    )}
   </div>
 );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const useLocalStorage = <TValue,>(key: string, initial: TValue) => {
   const [value, setValue] = useState<TValue>(() => {
@@ -51,4 +51,33 @@ export const useTick = (intervalMs: number) => {
   }, [intervalMs]);
 
   return tick;
+};
+
+// Anything that hangs off a button and covers what is behind it: it closes on Escape and on a
+// press anywhere outside the returned ref, which is the only exit a popover reliably has.
+export const useDismissOnOutside = <TElement extends HTMLElement>(
+  isOpen: boolean,
+  onDismiss: () => void,
+) => {
+  const rootRef = useRef<TElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) onDismiss();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onDismiss();
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isOpen, onDismiss]);
+
+  return rootRef;
 };

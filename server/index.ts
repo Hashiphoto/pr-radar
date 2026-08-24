@@ -23,6 +23,7 @@ import {
   getSettings,
   pruneDismissed,
   removeDismissed,
+  resetSettings,
   saveSettings,
   stateFilePath,
 } from './store.js';
@@ -148,6 +149,14 @@ app.put('/api/settings', async (request, response) => {
     response.json({ settings: await saveSettings(request.body as Partial<Settings>) });
   } catch (error) {
     response.status(400).json({ error: asMessage(error) });
+  }
+});
+
+app.post('/api/settings/reset', async (_request, response) => {
+  try {
+    response.json({ settings: await resetSettings() });
+  } catch (error) {
+    response.status(500).json({ error: asMessage(error) });
   }
 });
 

@@ -81,6 +81,7 @@ export interface Settings {
   includeTeamRequests: boolean;
   jiraBaseUrl: string;
   botReviewComment: string;
+  bots: string[];
   groups: Group[];
 }
 

@@ -12,7 +12,6 @@ export interface ReviewInput {
   reviewThreads: {
     nodes: {
       isResolved: boolean;
-      isOutdated: boolean;
       comments: { nodes: { author: Actor | null }[] };
     }[];
   };
@@ -75,7 +74,7 @@ export const signalsFor = (input: ReviewInput, options: SignalOptions): ReviewSi
       latest.some((review) => review.state === 'APPROVED') &&
       !latest.some((review) => review.state === 'CHANGES_REQUESTED'),
     hasChangesRequested: latest.some((review) => review.state === 'CHANGES_REQUESTED'),
-    // A thread left open is open feedback whether or not the review it came from still stands.
-    openThreadCount: threads.filter((thread) => !thread.isResolved && !thread.isOutdated).length,
+    // Unresolved is unresolved: neither a superseded review nor a stale diff resolves a thread.
+    openThreadCount: threads.filter((thread) => !thread.isResolved).length,
   };
 };

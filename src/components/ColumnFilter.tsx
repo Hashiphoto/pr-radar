@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ColumnDefinition } from '../../shared/columns.js';
+import { useDismissOnOutside } from '../hooks.js';
 import { ChevronIcon } from './Icons.js';
 
 const summarize = (column: ColumnDefinition, selected: string[]): string => {
@@ -18,25 +19,8 @@ export interface ColumnFilterProps {
 
 export const ColumnFilter = ({ column, selected, onChange }: ColumnFilterProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [isOpen]);
+  const close = useCallback(() => setIsOpen(false), []);
+  const rootRef = useDismissOnOutside<HTMLDivElement>(isOpen, close);
 
   // Stored in column order rather than click order, so the summary reads the same as the menu.
   const toggle = (id: string) => {

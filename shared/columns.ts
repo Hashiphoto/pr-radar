@@ -47,19 +47,19 @@ export const COLUMNS: ColumnDefinition[] = [
         id: 'you',
         label: 'You',
         tone: 'accent',
-        rule: 'You opened it, so it is here whether or not anyone asked you to review it.',
+        rule: 'You created the pull request.',
       },
       {
         id: 'vip',
         label: 'VIP',
         tone: 'gold',
-        rule: 'The author is on your VIP list. Star anyone in the Author column to put them there.',
+        rule: 'The author is on your VIP list. Star anyone in the Author column to add them.',
       },
       {
         id: 'other',
         label: 'Everyone else',
         tone: 'neutral',
-        rule: 'Somebody else wrote it and they are not a VIP.',
+        rule: 'The author is not you and not on your VIP list.',
       },
     ],
   },
@@ -71,34 +71,34 @@ export const COLUMNS: ColumnDefinition[] = [
         id: 'notRequested',
         label: 'Not requested',
         tone: 'neutral',
-        rule: 'No human review has been asked for and none has landed.',
+        rule: 'No human review requested or completed.',
       },
       {
         id: 'requested',
         label: 'Requested',
         tone: 'amber',
-        rule: 'A human review is outstanding and nothing that still counts has landed.',
+        rule: 'One or more reviews requested, none completed.',
       },
       {
         id: 'changesRequested',
         label: 'Changes requested',
         tone: 'red',
-        rule: 'At least one reviewer asks for changes, whatever anyone else said.',
+        rule: 'At least one completed review requested changes.',
       },
       {
         id: 'approved',
         label: 'Approved',
         tone: 'green',
-        rule: 'At least one reviewer approved and nobody asks for changes. The count is how many approved.',
+        rule: 'At least one reviewer approved and nobody requested changes. The count is how many approved.',
       },
       {
         id: 'commented',
         label: 'Commented',
         tone: 'accent',
-        rule: 'Every review that still counts only commented: no approval, no changes requested.',
+        rule: 'At least one review completed, with no approvals and no changes requested.',
       },
     ],
-    note: `People only, and never the author: answering a bot on your own pull request is recorded as a review, and counting it would say a human had looked when none had. ${reRequestNote} Whether comments are still open is the Feedback column.`,
+    note: `Reviews by teams and non-bot users, never the author: answering a bot on your own pull request is recorded as a review, and counting it would say a human had looked when none had. ${reRequestNote} Whether comments are still open is the Feedback column.`,
   },
   {
     id: 'bot',
@@ -108,22 +108,22 @@ export const COLUMNS: ColumnDefinition[] = [
         id: 'notRequested',
         label: 'Not requested',
         tone: 'neutral',
-        rule: 'No bot has been asked and none has run. On a draft, this cell is a button that asks the bot configured in settings.',
+        rule: 'No bot review requested or completed. On a draft, this cell is a button that asks the bot named in settings.',
       },
       {
         id: 'requested',
         label: 'Requested',
         tone: 'amber',
-        rule: 'A bot has been asked and has not answered since.',
+        rule: 'A bot review is requested and none has completed since.',
       },
       {
         id: 'completed',
         label: 'Completed',
         tone: 'purple',
-        rule: 'A bot has reviewed it. What it said is a verdict nobody merges on, so the column stops here and the Feedback column says whether anything is still open.',
+        rule: 'At least one bot has finished reviewing. Whether it left anything open is the Feedback column.',
       },
     ],
-    note: `Bots only, so a CodeRabbit nit never reads as a human blocking you. ${reRequestNote}`,
+    note: `Reviews by bot users, never teams, so a CodeRabbit nit never reads as a human blocking you. Which accounts count as bots is set under Bot accounts in settings. ${reRequestNote}`,
   },
   {
     id: 'feedback',
@@ -133,16 +133,16 @@ export const COLUMNS: ColumnDefinition[] = [
         id: 'unresolved',
         label: 'Unresolved',
         tone: 'purple',
-        rule: 'At least one review thread is open and not outdated. The count is how many.',
+        rule: 'At least one review thread is unresolved. The count is how many.',
       },
       {
         id: 'clear',
         label: 'None',
         tone: 'neutral',
-        rule: 'Nothing open: every thread is resolved or outdated, or there never was one.',
+        rule: 'Every review thread is resolved, or there never was one.',
       },
     ],
-    note: 'People and bots together, since a thread is work to do either way, and never a thread the author started: a question you asked on your own pull request is not feedback you owe.',
+    note: 'Open threads from humans and bots alike, since a thread is work to do either way. Threads the author started do not count: a question you asked on your own pull request is not feedback you owe.',
   },
   {
     id: 'checks',
@@ -283,7 +283,7 @@ export const describeFilters = (filters: GroupFilters): string => {
     return [`${column.label}: ${labels.join(' or ')}`];
   });
 
-  return parts.length > 0 ? parts.join(' + ') : 'every pull request';
+  return parts.length > 0 ? parts.join(', ') : 'every pull request';
 };
 
 // Groups used to name a source list — the pull requests awaiting my review, or the ones I wrote —

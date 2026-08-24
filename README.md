@@ -33,6 +33,10 @@ A local dashboard for the pull requests that actually need you.
   *requested*, *completed*, because a bot's verdict is not one anybody merges on. The author is
   not one of its own reviewers either: answering a bot on your own pull request is recorded as a
   review, and counting it would say a human had looked when none had.
+- **Which accounts are bots is yours to say** — GitHub's own apps are recognized on sight, but a
+  reviewer like CodeRabbit is an ordinary user account, and only you know which ones your org
+  runs. List them under *Bot accounts* in settings and their reviews fill the Bot review column
+  instead of counting as human approvals.
 - **Feedback is its own question** — *unresolved threads* or *none*, people and bots together,
   because an open thread is work to do whoever opened it. Threads the author started do not
   count: a question you asked on your own pull request is not feedback you owe. This is what
@@ -114,7 +118,9 @@ the panel still lists failing checks and links to Azure.
 prompt, then mark the groups you care about *Notify*. They fire while a PR Radar tab is open —
 the first load after a reload only establishes the baseline, so you are told about arrivals
 rather than about what was already waiting. Redefining a group re-establishes that baseline too,
-so widening its filters does not announce everything it sweeps in.
+so widening its filters does not announce everything it sweeps in. *Send test notification*
+sends one on the spot and tells you if the browser said it showed it, which is the difference
+between a setting being off and your desktop swallowing it.
 
 **Jira links.** Set *Jira base URL* in settings to something like
 `https://your-org.atlassian.net/browse`, and the Jira column links the first issue key in each title.
@@ -123,7 +129,8 @@ so widening its filters does not announce everything it sweeps in.
 requests you have set aside; `PR_RADAR_STATE` moves the file. *Export config* and *Import config*
 at the bottom of settings (`,`) round-trip the settings half of it as `pr-radar-config.json`, so
 sharing a set of groups is one file rather than a hand-edit. Importing replaces every setting in
-the file it names and leaves your set-aside list alone.
+the file it names and leaves your set-aside list alone. *Reset to defaults* puts every setting
+back, groups included, after one confirmation, and also leaves that list alone.
 
 **A nicer URL.** Add this to `/etc/hosts` for <http://pr-radar.test:4317>:
 

@@ -115,6 +115,19 @@ export const App = () => {
     [refresh, settings],
   );
 
+  // Collapsed sections are keyed by group id, so a stale entry would hand a default group back
+  // hidden, which is not a default anybody set.
+  const resetSettings = useCallback(async () => {
+    try {
+      const result = await api.resetSettings();
+      setSettings(result.settings);
+      setCollapsed({});
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to reset settings');
+    }
+  }, [refresh, setCollapsed]);
+
   const toggleVip = useCallback(
     (login: string) => {
       if (!settings) return;
@@ -473,7 +486,8 @@ export const App = () => {
                   <div className="group-panel">
                     <GroupRow
                       group={entry.group}
-                      isPickerOpen
+                      isEditing
+                      onToggleEditing={() => setEditingGroupId(null)}
                       onPatch={(changes) => patchGroup(entry.group.id, changes)}
                       onRemove={() => removeGroup(entry.group.id)}
                     />
@@ -548,6 +562,7 @@ export const App = () => {
           notifications={notifications}
           onClose={() => setIsSettingsOpen(false)}
           onChange={(patch) => void applySettings(patch)}
+          onReset={() => void resetSettings()}
           onEditGroups={() => setIsGroupEditorOpen(true)}
         />
       )}

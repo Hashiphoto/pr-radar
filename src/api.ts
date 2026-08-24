@@ -29,6 +29,9 @@ export const fetchSettings = () => request<{ settings: Settings; stateFile: stri
 export const updateSettings = (patch: Partial<Settings>) =>
   request<{ settings: Settings }>('/settings', { method: 'PUT', body: JSON.stringify(patch) });
 
+export const resetSettings = () =>
+  request<{ settings: Settings }>('/settings/reset', { method: 'POST' });
+
 export const dismissPr = (entry: Omit<DismissedEntry, 'dismissedAt'>) =>
   request<{ dismissed: DismissedEntry[] }>('/dismissed', {
     method: 'POST',

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Settings } from '../../shared/types.js';
-import type { NotificationControls } from '../notifications.js';
+import { useDismissOnOutside } from '../hooks.js';
+import type { NotificationControls, NotificationTestResult } from '../notifications.js';
 import { CloseIcon } from './Icons.js';
 
 export interface SettingsDrawerProps {
@@ -9,6 +10,7 @@ export interface SettingsDrawerProps {
   notifications: NotificationControls;
   onClose: () => void;
   onChange: (patch: Partial<Settings>) => void;
+  onReset: () => void;
   onEditGroups: () => void;
 }
 
@@ -25,13 +27,19 @@ export const SettingsDrawer = ({
   notifications,
   onClose,
   onChange,
+  onReset,
   onEditGroups,
 }: SettingsDrawerProps) => {
   const [vipDraft, setVipDraft] = useState('');
   const [orgDraft, setOrgDraft] = useState('');
+  const [botDraft, setBotDraft] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+  const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+  const [testResult, setTestResult] = useState<NotificationTestResult | null>(null);
   const vipInputRef = useRef<HTMLInputElement>(null);
   const configInputRef = useRef<HTMLInputElement>(null);
+  const cancelReset = useCallback(() => setIsConfirmingReset(false), []);
+  const resetRef = useDismissOnOutside<HTMLDivElement>(isConfirmingReset, cancelReset);
 
   // Autofocus belongs to opening the drawer, not to every render: sharing an effect with the
   // Escape handler stole the caret back on each keystroke elsewhere in the panel.
@@ -63,11 +71,11 @@ export const SettingsDrawer = ({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !isConfirmingReset) onClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [isConfirmingReset, onClose]);
 
   const addVips = () => {
     const additions = vipDraft
@@ -85,6 +93,23 @@ export const SettingsDrawer = ({
     const trimmed = orgDraft.trim();
     if (trimmed) onChange({ orgs: [...settings.orgs, trimmed] });
     setOrgDraft('');
+  };
+
+  const addBots = () => {
+    const additions = botDraft
+      .split(/[\s,]+/)
+      .map((entry) => entry.trim().replace(/^@/, ''))
+      .filter(Boolean);
+
+    if (additions.length > 0) {
+      onChange({ bots: [...settings.bots, ...additions] });
+    }
+    setBotDraft('');
+  };
+
+  const sendTest = async () => {
+    setTestResult(null);
+    setTestResult(await notifications.sendTest());
   };
 
   return (
@@ -219,6 +244,50 @@ export const SettingsDrawer = ({
           </div>
 
           <div className="field">
+            <span className="field-label">Bot accounts</span>
+            <div className="row">
+              <input
+                className="text-input"
+                placeholder="coderabbitai"
+                value={botDraft}
+                onChange={(event) => setBotDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addBots();
+                  }
+                }}
+              />
+              <button type="button" className="primary-button" onClick={addBots}>
+                Add
+              </button>
+            </div>
+            <p className="hint">
+              Reviews from these accounts fill the Bot review column instead of counting as human
+              approvals. Anything GitHub already reports as an app is recognized without being
+              listed; name the reviewers that review as ordinary users. Paste several at once,
+              separated by spaces or commas.
+            </p>
+            <div className="chip-list">
+              {settings.bots.length === 0 && (
+                <span className="hint">No bot accounts named. Every reviewer counts as a human.</span>
+              )}
+              {settings.bots.map((login) => (
+                <span className="chip" key={login}>
+                  {login}
+                  <button
+                    type="button"
+                    title={`Remove ${login}`}
+                    onClick={() => onChange({ bots: settings.bots.filter((entry) => entry !== login) })}
+                  >
+                    <CloseIcon size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
             <span className="field-label">Behavior</span>
             <label className="switch">
               <input
@@ -245,6 +314,24 @@ export const SettingsDrawer = ({
                 <span>{notificationHint(notifications)}</span>
               </span>
             </label>
+            <div className="row">
+              <button
+                type="button"
+                className="icon-button"
+                disabled={!notifications.isOn}
+                title={
+                  notifications.isOn
+                    ? 'Show one notification now'
+                    : 'Turn desktop notifications on first'
+                }
+                onClick={() => void sendTest()}
+              >
+                Send test notification
+              </button>
+            </div>
+            {testResult && (
+              <p className={`hint${testResult.isDelivered ? '' : ' is-bad'}`}>{testResult.message}</p>
+            )}
           </div>
 
           <div className="field">
@@ -275,20 +362,61 @@ export const SettingsDrawer = ({
             <span className="field-label">Config file</span>
             <p className="hint">
               Everything on this panel lives in <code>{stateFile}</code>. Export writes the same
-              JSON without your set-aside pull requests, so it is safe to hand to someone else;
-              importing replaces every setting in it, groups included.
+              JSON without your set-aside pull requests, so it is safe to hand to someone else.
+              Import and Reset both replace every setting, groups included, and leave your
+              set-aside pull requests alone.
             </p>
-            <div className="row">
-              <button type="button" className="icon-button" onClick={exportConfig}>
-                Export config
+            <div className="config-actions">
+              <button
+                type="button"
+                className="icon-button"
+                title="Download these settings as JSON"
+                onClick={exportConfig}
+              >
+                Export
               </button>
               <button
                 type="button"
                 className="icon-button"
+                title="Replace these settings from a JSON file"
                 onClick={() => configInputRef.current?.click()}
               >
-                Import config
+                Import
               </button>
+              <div className="config-reset" ref={resetRef}>
+                <button
+                  type="button"
+                  className="icon-button is-destructive"
+                  title="Put every setting back to its default"
+                  aria-expanded={isConfirmingReset}
+                  onClick={() => setIsConfirmingReset((current) => !current)}
+                >
+                  Reset
+                </button>
+                {isConfirmingReset && (
+                  <div className="confirm-popover" role="dialog" aria-label="Confirm reset">
+                    <p className="hint">
+                      Replace every setting with the defaults, groups included? Your set-aside pull
+                      requests stay.
+                    </p>
+                    <div className="confirm-popover-actions">
+                      <button type="button" className="icon-button" onClick={cancelReset}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button is-destructive"
+                        onClick={() => {
+                          setIsConfirmingReset(false);
+                          onReset();
+                        }}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <input
               ref={configInputRef}

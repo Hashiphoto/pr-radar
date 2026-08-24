@@ -2,6 +2,7 @@ import {
   ArrowDown,
   ArrowUp,
   Bell,
+  BellOff,
   Check,
   ChevronDown,
   Copy,
@@ -10,12 +11,14 @@ import {
   GitPullRequest,
   GitPullRequestDraft,
   Moon,
+  Pencil,
   Plus,
   RefreshCw,
   Rows3,
   Settings,
   Star,
   Sun,
+  Trash2,
   TriangleAlert,
   Undo2,
   X,
@@ -58,6 +61,9 @@ export const PrOpenIcon = icon(GitPullRequest);
 export const PrDraftIcon = icon(GitPullRequestDraft);
 export const ConflictIcon = icon(TriangleAlert, 14);
 export const HelpIcon = icon(CircleQuestionMark);
+export const TrashIcon = icon(Trash2);
+export const PencilIcon = icon(Pencil, 13);
+export const BellOffIcon = icon(BellOff);
 
 // The only icon with two states: a starred author is filled, everyone else gets the outline.
 export const StarIcon = ({ size = 16, className, filled = false }: IconProps & { filled?: boolean }) => (

@@ -4,12 +4,18 @@ import type { Group, PullRequest } from '../shared/types.js';
 import type { PrEntry } from './entries.js';
 import { useLocalStorage } from './hooks.js';
 
+export interface NotificationTestResult {
+  isDelivered: boolean;
+  message: string;
+}
+
 export interface NotificationControls {
   isSupported: boolean;
   isBlocked: boolean;
   isOn: boolean;
   enable: () => Promise<void>;
   disable: () => void;
+  sendTest: () => Promise<NotificationTestResult>;
 }
 
 export interface GroupMembership {
@@ -34,7 +40,43 @@ const show = (title: string, body: string, tag: string, icon: string | undefined
     if (url) window.open(url, '_blank', 'noopener');
     notification.close();
   };
+  return notification;
 };
+
+// Constructing a Notification succeeds even when nothing reaches the desktop, so the test waits
+// for the browser to say it showed it. Silence is the answer people actually need.
+const sendTestNotification = (): Promise<NotificationTestResult> =>
+  new Promise((resolve) => {
+    if (!isSupported) {
+      resolve({ isDelivered: false, message: 'This browser cannot show desktop notifications.' });
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      resolve({ isDelivered: false, message: 'This browser has not granted notification permission.' });
+      return;
+    }
+
+    try {
+      const notification = show('PR Radar', 'Desktop notifications are working.', 'pr-radar:test', undefined);
+      notification.onshow = () => resolve({ isDelivered: true, message: 'Sent. Look for it on your desktop.' });
+      notification.onerror = () =>
+        resolve({ isDelivered: false, message: 'The browser refused to show the notification.' });
+      window.setTimeout(
+        () =>
+          resolve({
+            isDelivered: false,
+            message:
+              'The browser accepted it but never showed it. Check notification permissions for your browser in your OS settings, and turn off any focus or do-not-disturb mode.',
+          }),
+        3000,
+      );
+    } catch (caught) {
+      resolve({
+        isDelivered: false,
+        message: caught instanceof Error ? caught.message : 'The notification could not be created.',
+      });
+    }
+  });
 
 const describe = (pullRequest: PullRequest): string =>
   `${pullRequest.author?.login ?? 'Someone'} · ${pullRequest.title}`;
@@ -110,5 +152,12 @@ export const useGroupNotifications = (
     }
   }, [isOn, membership]);
 
-  return { isSupported, isBlocked: isSupported && permission === 'denied', isOn, enable, disable };
+  return {
+    isSupported,
+    isBlocked: isSupported && permission === 'denied',
+    isOn,
+    enable,
+    disable,
+    sendTest: sendTestNotification,
+  };
 };
