@@ -34,13 +34,59 @@ const signatureOf = (group: Group): string =>
   [group.id, ...COLUMNS.map((column) => (group.filters[column.id] ?? []).join('/'))].join('|');
 
 const show = (title: string, body: string, tag: string, icon: string | undefined, url?: string) => {
-  const notification = new Notification(title, { body, tag, icon });
+  const notification = new Notification(title, { body, tag, icon: icon || undefined });
   notification.onclick = () => {
     window.focus();
     if (url) window.open(url, '_blank', 'noopener');
     notification.close();
   };
   return notification;
+};
+
+type Notifiable = Pick<PullRequest, 'id' | 'title' | 'url' | 'number' | 'repository' | 'author'>;
+
+const describe = (pullRequest: Notifiable): string =>
+  `${pullRequest.author?.login ?? 'Someone'} · ${pullRequest.title}`;
+
+const announce = (group: Group, arrivals: Notifiable[]): Notification | null => {
+  const [first] = arrivals;
+  if (!first) return null;
+
+  if (arrivals.length === 1) {
+    return show(
+      `New in ${group.name}`,
+      `${describe(first)}\n${first.repository} #${first.number}`,
+      `${group.id}:${first.id}`,
+      first.author?.avatarUrl,
+      first.url,
+    );
+  }
+
+  return show(
+    `${arrivals.length} new in ${group.name}`,
+    arrivals.map(describe).join('\n'),
+    `${group.id}:${arrivals.map((pullRequest) => pullRequest.id).join(',')}`,
+    undefined,
+  );
+};
+
+const testGroup: Group = {
+  id: 'pr-radar:test',
+  name: 'TEST GROUP',
+  filters: {},
+  notifyOnNew: true,
+  hue: null,
+};
+
+// An empty url means clicking it only focuses the tab, so a test notification cannot send anyone
+// to a pull request that does not exist.
+const testPullRequest: Notifiable = {
+  id: 'test',
+  title: 'TEST — this is what a new pull request looks like',
+  url: '',
+  number: 0,
+  repository: 'test-org/TEST-REPO',
+  author: { login: 'TEST-AUTHOR', avatarUrl: '' },
 };
 
 // Constructing a Notification succeeds even when nothing reaches the desktop, so the test waits
@@ -57,7 +103,11 @@ const sendTestNotification = (): Promise<NotificationTestResult> =>
     }
 
     try {
-      const notification = show('PR Radar', 'Desktop notifications are working.', 'pr-radar:test', undefined);
+      const notification = announce(testGroup, [testPullRequest]);
+      if (!notification) {
+        resolve({ isDelivered: false, message: 'The notification could not be created.' });
+        return;
+      }
       notification.onshow = () => resolve({ isDelivered: true, message: 'Sent. Look for it on your desktop.' });
       notification.onerror = () =>
         resolve({ isDelivered: false, message: 'The browser refused to show the notification.' });
@@ -77,32 +127,6 @@ const sendTestNotification = (): Promise<NotificationTestResult> =>
       });
     }
   });
-
-const describe = (pullRequest: PullRequest): string =>
-  `${pullRequest.author?.login ?? 'Someone'} · ${pullRequest.title}`;
-
-const announce = (group: Group, arrivals: PullRequest[]) => {
-  const [first] = arrivals;
-  if (!first) return;
-
-  if (arrivals.length === 1) {
-    show(
-      `New in ${group.name}`,
-      `${describe(first)}\n${first.repository} #${first.number}`,
-      `${group.id}:${first.id}`,
-      first.author?.avatarUrl,
-      first.url,
-    );
-    return;
-  }
-
-  show(
-    `${arrivals.length} new in ${group.name}`,
-    arrivals.map(describe).join('\n'),
-    `${group.id}:${arrivals.map((pullRequest) => pullRequest.id).join(',')}`,
-    undefined,
-  );
-};
 
 export const useGroupNotifications = (
   membership: GroupMembership[] | undefined,

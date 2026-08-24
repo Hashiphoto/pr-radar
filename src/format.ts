@@ -33,3 +33,9 @@ export const clockTime = (isoDate: string): string =>
 
 export const compactNumber = (value: number): string =>
   value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value);
+
+export const describeInterval = (seconds: number): string => {
+  if (seconds % 3600 === 0) return seconds === 3600 ? 'hour' : `${seconds / 3600} hours`;
+  if (seconds % 60 === 0) return seconds === 60 ? 'minute' : `${seconds / 60} minutes`;
+  return `${seconds} seconds`;
+};

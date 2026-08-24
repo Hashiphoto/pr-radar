@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Settings } from '../../shared/types.js';
+import { describeInterval } from '../format.js';
 import { useDismissOnOutside } from '../hooks.js';
 import type { NotificationControls, NotificationTestResult } from '../notifications.js';
 import { CloseIcon } from './Icons.js';
@@ -13,6 +14,13 @@ export interface SettingsDrawerProps {
   onReset: () => void;
   onEditGroups: () => void;
 }
+
+// Fifteen seconds is the floor because below it the poll is spending GitHub requests faster than
+// the answer can change.
+const refreshHint = (seconds: number): string =>
+  seconds > 0
+    ? `Refetching every ${describeInterval(seconds)}. Set it to 0 to turn auto refresh off; anything else is rounded up to 15 seconds.`
+    : 'Off: nothing is refetched until you press r or reload. Any value above 0 is rounded up to 15 seconds.';
 
 const notificationHint = (notifications: NotificationControls): string => {
   if (!notifications.isSupported) return 'This browser cannot show desktop notifications.';
@@ -33,6 +41,7 @@ export const SettingsDrawer = ({
   const [vipDraft, setVipDraft] = useState('');
   const [orgDraft, setOrgDraft] = useState('');
   const [botDraft, setBotDraft] = useState('');
+  const [pollDraft, setPollDraft] = useState(String(settings.pollSeconds));
   const [importError, setImportError] = useState<string | null>(null);
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
   const [testResult, setTestResult] = useState<NotificationTestResult | null>(null);
@@ -46,6 +55,10 @@ export const SettingsDrawer = ({
   useEffect(() => {
     vipInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setPollDraft(String(settings.pollSeconds));
+  }, [settings.pollSeconds]);
 
   const exportConfig = () => {
     const url = URL.createObjectURL(
@@ -110,6 +123,17 @@ export const SettingsDrawer = ({
   const sendTest = async () => {
     setTestResult(null);
     setTestResult(await notifications.sendTest());
+  };
+
+  // Committed on blur rather than per keystroke, so the clamp cannot rewrite the field while it is
+  // still being typed into. An unparseable draft reverts to what is saved.
+  const commitPollSeconds = () => {
+    const parsed = Number(pollDraft);
+    if (pollDraft.trim().length === 0 || !Number.isFinite(parsed)) {
+      setPollDraft(String(settings.pollSeconds));
+      return;
+    }
+    onChange({ pollSeconds: parsed });
   };
 
   return (
@@ -336,18 +360,26 @@ export const SettingsDrawer = ({
 
           <div className="field">
             <label htmlFor="poll-seconds">Auto refresh</label>
-            <select
-              id="poll-seconds"
-              className="select"
-              value={settings.pollSeconds}
-              onChange={(event) => onChange({ pollSeconds: Number(event.target.value) })}
-            >
-              <option value={30}>Every 30 seconds</option>
-              <option value={60}>Every minute</option>
-              <option value={120}>Every 2 minutes</option>
-              <option value={300}>Every 5 minutes</option>
-              <option value={900}>Every 15 minutes</option>
-            </select>
+            <div className="row">
+              <input
+                id="poll-seconds"
+                className="text-input is-narrow"
+                type="number"
+                min={0}
+                step={15}
+                value={pollDraft}
+                onChange={(event) => setPollDraft(event.target.value)}
+                onBlur={commitPollSeconds}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitPollSeconds();
+                  }
+                }}
+              />
+              <span className="input-suffix">seconds</span>
+            </div>
+            <p className="hint">{refreshHint(settings.pollSeconds)}</p>
           </div>
 
           <div className="field">

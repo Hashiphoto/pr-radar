@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { columnValuesFor, matchesFilters } from '../shared/columns.js';
 import type { PullRequest, Settings, Snapshot } from '../shared/types.js';
 import * as api from './api.js';
-import { clockTime, timeUntil } from './format.js';
+import { clockTime, describeInterval, timeUntil } from './format.js';
 import { useLocalStorage, useTheme, useTick } from './hooks.js';
 import type { PrEntry } from './entries.js';
 import { useGroupNotifications, type GroupMembership } from './notifications.js';
@@ -94,7 +94,7 @@ export const App = () => {
   }, [refresh]);
 
   useEffect(() => {
-    if (!settings) return;
+    if (!settings || settings.pollSeconds <= 0) return;
     const timer = window.setInterval(() => void refresh(), settings.pollSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [refresh, settings]);
@@ -544,7 +544,13 @@ export const App = () => {
                 {timeUntil(snapshot.rateLimit.resetAt)}
               </span>
             )}
-            {settings && <span>· auto refresh every {settings.pollSeconds}s</span>}
+            {settings && (
+              <span>
+                {settings.pollSeconds > 0
+                  ? `· auto refresh every ${describeInterval(settings.pollSeconds)}`
+                  : '· auto refresh off'}
+              </span>
+            )}
             <span>
               · <kbd>r</kbd> refresh <kbd>/</kbd> search <kbd>d</kbd> dismissed <kbd>g</kbd> groups{' '}
               <kbd>,</kbd> settings <kbd>?</kbd> help

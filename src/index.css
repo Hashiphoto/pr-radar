@@ -184,6 +184,20 @@ a {
   font: inherit;
 }
 
+.text-input.is-narrow {
+  width: 92px;
+  flex: none;
+}
+
+/* The unit sits beside the field rather than inside it, so the number keeps the whole box. */
+.input-suffix {
+  display: flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
 .search input:focus,
 .select:focus,
 .text-input:focus {

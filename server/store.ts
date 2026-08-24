@@ -96,6 +96,14 @@ export const defaultSettings: Settings = {
 
 // GitHub logins are matched case-insensitively, so two spellings of one account are one entry:
 // keeping both would put a duplicate chip on the panel that no amount of removing clears.
+// Zero is off rather than a floor to clamp up: an interval of a few seconds is a way to burn the
+// GitHub rate limit, but "do not poll at all" is a real answer.
+const normalizePollSeconds = (seconds: number): number => {
+  if (!Number.isFinite(seconds)) return defaultSettings.pollSeconds;
+  const rounded = Math.round(seconds);
+  return rounded <= 0 ? 0 : Math.max(15, rounded);
+};
+
 const normalizeLogins = (logins: string[]): string[] => {
   const byKey = new Map<string, string>();
 
@@ -150,8 +158,8 @@ const coerce = (raw: unknown): PersistedState => {
     settings: {
       vips: Array.isArray(settings.vips) ? settings.vips.filter((login) => typeof login === 'string') : base.settings.vips,
       pollSeconds:
-        typeof settings.pollSeconds === 'number' && settings.pollSeconds >= 15
-          ? settings.pollSeconds
+        typeof settings.pollSeconds === 'number'
+          ? normalizePollSeconds(settings.pollSeconds)
           : base.settings.pollSeconds,
       orgs: Array.isArray(settings.orgs) ? settings.orgs.filter((org) => typeof org === 'string') : base.settings.orgs,
       includeTeamRequests: settings.includeTeamRequests ?? base.settings.includeTeamRequests,
@@ -226,7 +234,7 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
       jiraBaseUrl: (patch.jiraBaseUrl ?? current.settings.jiraBaseUrl).trim(),
       botReviewComment: (patch.botReviewComment ?? current.settings.botReviewComment).trim(),
       bots: normalizedBots,
-      pollSeconds: Math.max(15, Math.round(patch.pollSeconds ?? current.settings.pollSeconds)),
+      pollSeconds: normalizePollSeconds(patch.pollSeconds ?? current.settings.pollSeconds),
     },
   };
 

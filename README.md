@@ -62,7 +62,7 @@ A local dashboard for the pull requests that actually need you.
   decides them, so the window cannot drift from what the table does.
 - Light and dark themes, text and repo filters, keyboard shortcuts (<kbd>r</kbd> refresh,
   <kbd>/</kbd> search, <kbd>d</kbd> dismissed, <kbd>g</kbd> groups, <kbd>,</kbd> settings,
-  <kbd>?</kbd> help), auto refresh.
+  <kbd>?</kbd> help), and an auto refresh you set in seconds — 0 turns it off.
 
 ![Failing check expanded](docs/screenshot-dark.png)
 
@@ -119,8 +119,9 @@ prompt, then mark the groups you care about *Notify*. They fire while a PR Radar
 the first load after a reload only establishes the baseline, so you are told about arrivals
 rather than about what was already waiting. Redefining a group re-establishes that baseline too,
 so widening its filters does not announce everything it sweeps in. *Send test notification*
-sends one on the spot and tells you if the browser said it showed it, which is the difference
-between a setting being off and your desktop swallowing it.
+sends one on the spot, through the same code an arrival goes through, so what you see is the real
+thing with obvious stand-in text. It also tells you whether the browser said it showed it, which is
+the difference between a setting being off and your desktop swallowing it.
 
 **Jira links.** Set *Jira base URL* in settings to something like
 `https://your-org.atlassian.net/browse`, and the Jira column links the first issue key in each title.
