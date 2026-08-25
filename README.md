@@ -1,6 +1,6 @@
 # PR Radar
 
-A local dashboard for the pull requests that actually need you.
+A local dashboard for pull requests across repos.
 
 ![PR Radar](docs/screenshot-light.png)
 
