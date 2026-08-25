@@ -1,5 +1,3 @@
-import type { AccessBlock } from '../shared/types.js';
-
 const minute = 60_000;
 const hour = 60 * minute;
 const day = 24 * hour;
@@ -40,9 +38,4 @@ export const describeInterval = (seconds: number): string => {
   if (seconds % 3600 === 0) return seconds === 3600 ? 'hour' : `${seconds / 3600} hours`;
   if (seconds % 60 === 0) return seconds === 60 ? 'minute' : `${seconds / 60} minutes`;
   return `${seconds} seconds`;
-};
-
-export const describeAccessBlock = ({ name, organizationIds }: AccessBlock): string => {
-  if (name) return name;
-  return organizationIds.length === 1 ? 'an organization' : `${organizationIds.length} organizations`;
 };

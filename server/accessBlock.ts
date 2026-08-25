@@ -1,5 +1,5 @@
 import type { AccessBlock } from '../shared/types.js';
-import { githubRestHeaders } from './githubClient.js';
+import { githubRestProbe } from './githubClient.js';
 
 const ssoHeader = 'x-github-sso';
 
@@ -12,25 +12,23 @@ const firstCapture = (value: string | null, pattern: RegExp): string | null =>
 const withheldOrganizationIds = (header: string | null): string[] =>
   firstCapture(header, /organizations=([\d,]+)/)?.split(',').filter(Boolean) ?? [];
 
-// An opaque per-request grant, stated nowhere but the refusal, so it has to be asked for.
-const authorizationUrlFor = async (organizationId: string): Promise<string | null> => {
-  const refusal = await githubRestHeaders(`/organizations/${organizationId}`);
-  return firstCapture(refusal.headers.get(ssoHeader), /url=(\S+)/);
+const messageFrom = (body: unknown): string | null => {
+  const message = (body as { message?: unknown })?.message;
+  return typeof message === 'string' && message.length > 0 ? message : null;
 };
 
-// The organization is invisible to a token it has not been authorized for, so its own name has to
-// come out of the url that authorizes it.
-const nameFrom = (authorizationUrl: string | null): string | null =>
-  firstCapture(authorizationUrl, /github\.com\/(?:enterprises|orgs)\/([^/]+)\/sso/);
-
 export const detectAccessBlock = async (): Promise<AccessBlock | null> => {
-  const listing = await githubRestHeaders(listingPath);
-  const organizationIds = withheldOrganizationIds(listing.headers.get(ssoHeader));
-  const [firstOrganizationId] = organizationIds;
+  const listing = await githubRestProbe(listingPath);
+  const [firstOrganizationId] = withheldOrganizationIds(listing.headers.get(ssoHeader));
 
   if (!firstOrganizationId) return null;
 
-  const authorizationUrl = await authorizationUrlFor(firstOrganizationId);
+  // Asking after one of them is refused in GitHub's own words, with the url that clears it.
+  const refusal = await githubRestProbe(`/organizations/${firstOrganizationId}`);
 
-  return { name: nameFrom(authorizationUrl), organizationIds, authorizationUrl };
+  return {
+    status: refusal.status,
+    message: messageFrom(refusal.body) ?? 'GitHub is withholding this organization from the token.',
+    authorizationUrl: firstCapture(refusal.headers.get(ssoHeader), /url=(\S+)/),
+  };
 };

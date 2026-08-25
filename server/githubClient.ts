@@ -56,11 +56,23 @@ export const githubGraphql = async <TData,>(
   variables: Record<string, unknown>,
 ): Promise<TData> => (await githubGraphqlWithWarnings<TData>(query, variables)).data;
 
-// Status and headers of a GET, without the throw: a refusal is the answer here rather than a
-// failure, since what SAML SSO withheld is stated in a header on the way past.
-export const githubRestHeaders = async (path: string): Promise<{ status: number; headers: Headers }> => {
+export interface RestProbe {
+  status: number;
+  headers: Headers;
+  body: unknown;
+}
+
+// A GET without the throw: a refusal is the answer here rather than a failure, and both what SAML
+// SSO withheld and GitHub's own words for it are in that response.
+export const githubRestProbe = async (path: string): Promise<RestProbe> => {
   const response = await fetch(`${restEndpoint}${path}`, { headers: await headers() });
-  return { status: response.status, headers: response.headers };
+  const text = await response.text();
+
+  return {
+    status: response.status,
+    headers: response.headers,
+    body: text.length > 0 ? JSON.parse(text) : null,
+  };
 };
 
 export const githubRest = async (path: string, init?: RequestInit): Promise<unknown> => {

@@ -107,8 +107,8 @@ loopback only, since it exposes your private pull requests — set `HOST` to ove
 GitHub auth comes from `PR_RADAR_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or the `gh` CLI, in
 that order; a manual token needs the `repo` and `read:org` scopes. If an organization enforces
 SAML SSO, the token has to be authorized for it too — GitHub answers search without that
-organization's pull requests rather than erroring, so PR Radar checks on every refresh and puts a
-banner with the authorization link above your groups when it finds one being withheld.
+organization's pull requests rather than erroring, so PR Radar checks on every refresh and puts
+GitHub's own refusal, and the link that clears it, above your groups.
 
 ## License
 
