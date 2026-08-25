@@ -133,12 +133,6 @@ sharing a set of groups is one file rather than a hand-edit. Importing replaces 
 the file it names and leaves your set-aside list alone. *Reset to defaults* puts every setting
 back, groups included, after one confirmation, and also leaves that list alone.
 
-**A nicer URL.** Add this to `/etc/hosts` for <http://pr-radar.test:4317>:
-
-```
-127.0.0.1   pr-radar.test
-```
-
 **Keep it running after logout.**
 
 ```bash
