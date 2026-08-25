@@ -63,13 +63,9 @@ const coerceGroups = (raw: unknown, fallback: Group[]): Group[] => {
   return [...new Map(groups.map((group) => [group.id, group])).values()];
 };
 
-const configDirectory = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'pr-radar');
-const configOverride = process.env.PR_RADAR_CONFIG ?? process.env.PR_RADAR_STATE;
-const configFile = configOverride ?? join(configDirectory, 'config.json');
-
-// What the file was called before it was named for what it holds. An override names one file and
-// means it, so the fallback is only for the default location.
-const legacyConfigFile = configOverride ? null : join(configDirectory, 'state.json');
+const configFile =
+  process.env.PR_RADAR_CONFIG ??
+  join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'pr-radar', 'config.json');
 
 const emptyState = (): PersistedState => ({ settings: { ...defaultSettings }, dismissed: [] });
 
@@ -126,21 +122,14 @@ const persist = (next: PersistedState): Promise<void> => {
   return settled;
 };
 
-const readFrom = async (path: string): Promise<PersistedState | null> => {
-  try {
-    return coerce(JSON.parse(await readFile(path, 'utf8')));
-  } catch {
-    return null;
-  }
-};
-
 export const loadState = async (): Promise<PersistedState> => {
   if (state) return state;
 
-  state =
-    (await readFrom(configFile)) ??
-    (legacyConfigFile ? await readFrom(legacyConfigFile) : null) ??
-    emptyState();
+  try {
+    state = coerce(JSON.parse(await readFile(configFile, 'utf8')));
+  } catch {
+    state = emptyState();
+  }
 
   return state;
 };

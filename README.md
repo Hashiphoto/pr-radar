@@ -84,9 +84,8 @@ the difference between a setting being off and your desktop swallowing it.
 `https://your-org.atlassian.net/browse`, and the Jira column links the first issue key in each title.
 
 **Config.** Settings and groups live in `~/.config/pr-radar/config.json`, alongside the pull
-requests you have set aside; `PR_RADAR_CONFIG` moves the file. An install predating that name reads
-its old `state.json` until the next save writes `config.json`, which you can then delete. *Export
-config* and *Import config* at the bottom of settings (`,`) round-trip the settings half of it as
+requests you have set aside; `PR_RADAR_CONFIG` moves the file. *Export config* and *Import
+config* at the bottom of settings (`,`) round-trip the settings half of it as
 `pr-radar-config.json`, so sharing a set of groups is one file rather than a hand-edit. Importing
 replaces every setting in the file it names and leaves your set-aside list alone. *Reset to
 defaults* puts every setting back, groups included, after one confirmation, and also leaves that
