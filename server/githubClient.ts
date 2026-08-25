@@ -56,6 +56,13 @@ export const githubGraphql = async <TData,>(
   variables: Record<string, unknown>,
 ): Promise<TData> => (await githubGraphqlWithWarnings<TData>(query, variables)).data;
 
+// Status and headers of a GET, without the throw: a refusal is the answer here rather than a
+// failure, since what SAML SSO withheld is stated in a header on the way past.
+export const githubRestHeaders = async (path: string): Promise<{ status: number; headers: Headers }> => {
+  const response = await fetch(`${restEndpoint}${path}`, { headers: await headers() });
+  return { status: response.status, headers: response.headers };
+};
+
 export const githubRest = async (path: string, init?: RequestInit): Promise<unknown> => {
   const response = await fetch(`${restEndpoint}${path}`, { ...init, headers: await headers() });
 

@@ -239,6 +239,11 @@ a {
   background: var(--amber-soft);
 }
 
+.banner a {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .banner code {
   font-size: 12px;
   padding: 1px 4px;

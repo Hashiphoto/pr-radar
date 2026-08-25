@@ -353,6 +353,7 @@ export const demoSnapshot = (vips: string[]): Snapshot => {
       resetAt: new Date(Date.now() + 36 * 60_000).toISOString(),
     },
     warnings: [],
+    accessBlock: null,
   };
 };
 

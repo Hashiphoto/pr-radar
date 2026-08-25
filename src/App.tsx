@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { columnValuesFor, matchesFilters } from '../shared/columns.js';
 import type { PullRequest, Settings, Snapshot } from '../shared/types.js';
 import * as api from './api.js';
-import { clockTime, describeInterval, timeUntil } from './format.js';
+import { clockTime, describeAccessBlock, describeInterval, timeUntil } from './format.js';
 import { useLocalStorage, useTheme, useTick } from './hooks.js';
 import type { PrEntry } from './entries.js';
 import { useGroupNotifications, type GroupMembership } from './notifications.js';
@@ -445,6 +445,25 @@ export const App = () => {
         <div className="banner">
           <div>
             <strong>Could not reach GitHub.</strong> {error}
+          </div>
+        </div>
+      )}
+
+      {snapshot?.accessBlock && (
+        <div className="banner">
+          <div>
+            <strong>
+              GitHub is withholding pull requests from {describeAccessBlock(snapshot.accessBlock)}.
+            </strong>{' '}
+            Your token has not been authorized for single sign-on, so search answers without them
+            rather than saying so: a group that looks empty may not be.{' '}
+            {snapshot.accessBlock.authorizationUrl ? (
+              <a href={snapshot.accessBlock.authorizationUrl} target="_blank" rel="noreferrer">
+                Authorize it
+              </a>
+            ) : (
+              'Authorize it from the settings of whichever application issued the token.'
+            )}
           </div>
         </div>
       )}

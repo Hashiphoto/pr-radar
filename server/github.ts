@@ -8,6 +8,7 @@ import type {
   Settings,
   Snapshot,
 } from '../shared/types.js';
+import { detectAccessBlock } from './accessBlock.js';
 import { githubGraphqlWithWarnings } from './githubClient.js';
 import { reviewStateFor, signalsFor } from './reviewState.js';
 
@@ -229,6 +230,16 @@ export const fetchSnapshot = async (
         `Showing ${entry.result.nodes.length} of ${entry.result.issueCount} ${entry.label}. Narrow the search with an organization filter.`,
     );
 
+  // Withheld organizations come back as a shorter list rather than an error, so what search left
+  // out has to be asked for separately, on every fetch and not only an empty one.
+  const access = await detectAccessBlock().then(
+    (accessBlock) => ({ accessBlock, warnings: [] as string[] }),
+    (cause: unknown) => ({
+      accessBlock: null,
+      warnings: [`Could not check whether an organization is withholding pull requests: ${cause}`],
+    }),
+  );
+
   const dismissed = incoming.filter((pullRequest) => dismissedIds.has(pullRequest.id));
   const active = incoming.filter((pullRequest) => !dismissedIds.has(pullRequest.id));
 
@@ -239,7 +250,8 @@ export const fetchSnapshot = async (
     mine: [...mine].sort(byUpdatedDescending),
     dismissed: dismissed.sort(byUpdatedDescending),
     rateLimit: data.rateLimit,
-    warnings: [...warnings, ...truncation],
+    warnings: [...warnings, ...truncation, ...access.warnings],
+    accessBlock: access.accessBlock,
   };
 };
 

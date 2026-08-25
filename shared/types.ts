@@ -56,6 +56,15 @@ export interface PullRequest {
   isVip: boolean;
 }
 
+// Organizations whose data GitHub withheld from the token, rather than errored on. Search answers
+// 200 with them silently missing, so this is the only thing standing between a token that lost its
+// single sign-on and a dashboard that reads as an empty queue.
+export interface AccessBlock {
+  name: string | null;
+  organizationIds: string[];
+  authorizationUrl: string | null;
+}
+
 export interface Snapshot {
   viewer: { login: string; avatarUrl: string };
   fetchedAt: string;
@@ -64,6 +73,7 @@ export interface Snapshot {
   dismissed: PullRequest[];
   rateLimit: { remaining: number; limit: number; resetAt: string } | null;
   warnings: string[];
+  accessBlock: AccessBlock | null;
 }
 
 export interface Group {
