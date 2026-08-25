@@ -24,7 +24,7 @@ const request = async <TResult>(path: string, init?: RequestInit): Promise<TResu
 
 export const fetchSnapshot = () => request<Snapshot>('/prs');
 
-export const fetchSettings = () => request<{ settings: Settings; stateFile: string }>('/settings');
+export const fetchSettings = () => request<{ settings: Settings; configFile: string }>('/settings');
 
 export const updateSettings = (patch: Partial<Settings>) =>
   request<{ settings: Settings }>('/settings', { method: 'PUT', body: JSON.stringify(patch) });

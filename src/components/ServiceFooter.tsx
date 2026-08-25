@@ -131,8 +131,8 @@ export const ServiceFooter = () => {
             <dl className="service-grid">
               <dt>Project</dt>
               <dd><code>{service.projectRoot}</code></dd>
-              <dt>State file</dt>
-              <dd><code>{service.stateFile}</code></dd>
+              <dt>Config file</dt>
+              <dd><code>{service.configFile}</code></dd>
               <dt>Started</dt>
               <dd>{new Date(service.startedAt).toLocaleString()}</dd>
               <dt>Node</dt>

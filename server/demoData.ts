@@ -408,6 +408,6 @@ export const demoService = (port: number): ServiceInfo => ({
   managedBy: 'systemd',
   unit: 'pr-radar.service',
   projectRoot: '/home/you/Git/pr-radar',
-  stateFile: '/home/you/.config/pr-radar/state.json',
+  configFile: '/home/you/.config/pr-radar/config.json',
   nodeVersion: 'v22.21.1',
 });

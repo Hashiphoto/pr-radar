@@ -1,0 +1,89 @@
+{
+  "vips": [],
+  "pollSeconds": 120,
+  "orgs": [],
+  "includeTeamRequests": true,
+  "jiraBaseUrl": "",
+  "botReviewComment": "@coderabbitai review",
+  "bots": ["coderabbitai", "unblocked", "github-actions", "dependabot", "sonarcloud"],
+  "groups": [
+    {
+      "id": "vip",
+      "name": "VIP PR reviews",
+      "filters": { "author": ["vip"] },
+      "notifyOnNew": true,
+      "hue": 43
+    },
+    {
+      "id": "incoming",
+      "name": "PR Review Requests",
+      "filters": { "author": ["other"] },
+      "notifyOnNew": false,
+      "hue": 25
+    },
+    {
+      "id": "mergeReady",
+      "name": "Merge ready",
+      "filters": {
+        "author": ["you"],
+        "status": ["ready"],
+        "human": ["approved"],
+        "feedback": ["clear"]
+      },
+      "notifyOnNew": false,
+      "hue": 145
+    },
+    {
+      "id": "approvedWithFeedback",
+      "name": "Approved, comments open",
+      "filters": {
+        "author": ["you"],
+        "status": ["ready"],
+        "human": ["approved"],
+        "feedback": ["unresolved"]
+      },
+      "notifyOnNew": false,
+      "hue": 280
+    },
+    {
+      "id": "humanReviewed",
+      "name": "Human reviewed",
+      "filters": {
+        "author": ["you"],
+        "status": ["ready"],
+        "human": ["changesRequested", "commented"]
+      },
+      "notifyOnNew": false,
+      "hue": 265
+    },
+    {
+      "id": "awaitingHuman",
+      "name": "Awaiting human review",
+      "filters": {
+        "author": ["you"],
+        "status": ["ready"],
+        "human": ["notRequested", "requested"]
+      },
+      "notifyOnNew": false,
+      "hue": null
+    },
+    {
+      "id": "botReviewed",
+      "name": "Bot reviewed",
+      "filters": { "author": ["you"], "status": ["draft"], "bot": ["completed"] },
+      "notifyOnNew": false,
+      "hue": 250
+    },
+    {
+      "id": "drafts",
+      "name": "Drafts",
+      "filters": {
+        "author": ["you"],
+        "status": ["draft"],
+        "bot": ["notRequested", "requested"]
+      },
+      "notifyOnNew": false,
+      "hue": null
+    }
+  ]
+}

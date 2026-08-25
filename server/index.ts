@@ -25,7 +25,7 @@ import {
   removeDismissed,
   resetSettings,
   saveSettings,
-  stateFilePath,
+  configFilePath,
 } from './store.js';
 
 const port = Number(process.env.PORT ?? 4317);
@@ -140,7 +140,7 @@ app.get('/api/service', (_request, response) => {
 app.get('/api/settings', async (_request, response) => {
   response.json({
     settings: await getSettings(),
-    stateFile: isDemoMode ? demoService(port).stateFile : stateFilePath,
+    configFile: isDemoMode ? demoService(port).configFile : configFilePath,
   });
 });
 
@@ -197,7 +197,7 @@ if (existsSync(clientDist)) {
 app.listen(port, host, () => {
   const hasClient = existsSync(clientDist);
   console.log(`pr-radar listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port}`);
-  console.log(`state file: ${stateFilePath}`);
+  console.log(`config file: ${configFilePath}`);
   if (!hasClient) {
     console.log('client bundle not built yet - run `pnpm dev` for the Vite dev server');
   }

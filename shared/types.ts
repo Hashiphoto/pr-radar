@@ -143,6 +143,6 @@ export interface ServiceInfo {
   managedBy: 'systemd' | 'manual';
   unit: string;
   projectRoot: string;
-  stateFile: string;
+  configFile: string;
   nodeVersion: string;
 }

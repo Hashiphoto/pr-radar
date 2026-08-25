@@ -3,7 +3,7 @@ import { hostname } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ServiceInfo } from '../shared/types.js';
-import { stateFilePath } from './store.js';
+import { configFilePath } from './store.js';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -46,7 +46,7 @@ export const describeService = (port: number): ServiceInfo => {
     managedBy: isSystemd ? 'systemd' : 'manual',
     unit: `${unitName}.service`,
     projectRoot,
-    stateFile: stateFilePath,
+    configFile: configFilePath,
     nodeVersion: process.version,
   };
 };

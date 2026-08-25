@@ -7,7 +7,7 @@ import { CloseIcon } from './Icons.js';
 
 export interface SettingsDrawerProps {
   settings: Settings;
-  stateFile: string;
+  configFile: string;
   notifications: NotificationControls;
   onClose: () => void;
   onChange: (patch: Partial<Settings>) => void;
@@ -31,7 +31,7 @@ const notificationHint = (notifications: NotificationControls): string => {
 
 export const SettingsDrawer = ({
   settings,
-  stateFile,
+  configFile,
   notifications,
   onClose,
   onChange,
@@ -393,7 +393,7 @@ export const SettingsDrawer = ({
           <div className="field">
             <span className="field-label">Config file</span>
             <p className="hint">
-              Everything on this panel lives in <code>{stateFile}</code>. Export writes the same
+              Everything on this panel lives in <code>{configFile}</code>. Export writes the same
               JSON without your set-aside pull requests, so it is safe to hand to someone else.
               Import and Reset both replace every setting, groups included, and leave your
               set-aside pull requests alone.

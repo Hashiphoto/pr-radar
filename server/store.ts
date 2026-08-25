@@ -4,95 +4,17 @@ import { dirname, join } from 'node:path';
 import { filtersFromScope, filtersFromTags, normalizeFilters } from '../shared/columns.js';
 import { normalizeHue } from '../shared/hue.js';
 import type { DismissedEntry, Group, Settings } from '../shared/types.js';
+import defaults from './defaults.json' with { type: 'json' };
 
 interface PersistedState {
   settings: Settings;
   dismissed: DismissedEntry[];
 }
 
-// Two sections for other people's pull requests, then one per stage of my own work. Every section
-// is a box in the column grid, and together they tile it: any open pull request matches exactly one.
-export const defaultGroups: Group[] = [
-  {
-    id: 'vip',
-    name: 'VIP PR reviews',
-    filters: { author: ['vip'] },
-    notifyOnNew: true,
-    hue: 43,
-  },
-  {
-    id: 'incoming',
-    name: 'PR Review Requests',
-    filters: { author: ['other'] },
-    notifyOnNew: false,
-    hue: 25,
-  },
-  {
-    id: 'mergeReady',
-    name: 'Merge ready',
-    filters: { author: ['you'], status: ['ready'], human: ['approved'], feedback: ['clear'] },
-    notifyOnNew: false,
-    hue: 145,
-  },
-  {
-    id: 'approvedWithFeedback',
-    name: 'Approved, comments open',
-    filters: { author: ['you'], status: ['ready'], human: ['approved'], feedback: ['unresolved'] },
-    notifyOnNew: false,
-    hue: 280,
-  },
-  {
-    id: 'humanReviewed',
-    name: 'Human reviewed',
-    filters: {
-      author: ['you'],
-      status: ['ready'],
-      human: ['changesRequested', 'commented'],
-    },
-    notifyOnNew: false,
-    hue: 265,
-  },
-  {
-    id: 'awaitingHuman',
-    name: 'Awaiting human review',
-    filters: {
-      author: ['you'],
-      status: ['ready'],
-      human: ['notRequested', 'requested'],
-    },
-    notifyOnNew: false,
-    hue: null,
-  },
-  {
-    id: 'botReviewed',
-    name: 'Bot reviewed',
-    filters: { author: ['you'], status: ['draft'], bot: ['completed'] },
-    notifyOnNew: false,
-    hue: 250,
-  },
-  {
-    id: 'drafts',
-    name: 'Drafts',
-    filters: { author: ['you'], status: ['draft'], bot: ['notRequested', 'requested'] },
-    notifyOnNew: false,
-    hue: null,
-  },
-];
-
-// Accounts that review as a plain User, so neither the Bot type nor a `[bot]` login suffix
-// gives them away. Anything GitHub already types as a bot is recognized without being listed.
-export const defaultBots = ['coderabbitai', 'unblocked', 'github-actions', 'dependabot', 'sonarcloud'];
-
-export const defaultSettings: Settings = {
-  vips: [],
-  pollSeconds: 120,
-  orgs: [],
-  includeTeamRequests: true,
-  jiraBaseUrl: '',
-  botReviewComment: '@coderabbitai review',
-  bots: defaultBots,
-  groups: defaultGroups,
-};
+// Every group in defaults.json is a box in the column grid, and together they tile it: any open
+// pull request matches exactly one. The bots listed there review as a plain User, so neither the
+// Bot type nor a `[bot]` login suffix gives them away.
+export const defaultSettings: Settings = defaults;
 
 // GitHub logins are matched case-insensitively, so two spellings of one account are one entry:
 // keeping both would put a duplicate chip on the panel that no amount of removing clears.
@@ -141,9 +63,13 @@ const coerceGroups = (raw: unknown, fallback: Group[]): Group[] => {
   return [...new Map(groups.map((group) => [group.id, group])).values()];
 };
 
-const stateFile =
-  process.env.PR_RADAR_STATE ??
-  join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'pr-radar', 'state.json');
+const configDirectory = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'pr-radar');
+const configOverride = process.env.PR_RADAR_CONFIG ?? process.env.PR_RADAR_STATE;
+const configFile = configOverride ?? join(configDirectory, 'config.json');
+
+// What the file was called before it was named for what it holds. An override names one file and
+// means it, so the fallback is only for the default location.
+const legacyConfigFile = configOverride ? null : join(configDirectory, 'state.json');
 
 const emptyState = (): PersistedState => ({ settings: { ...defaultSettings }, dismissed: [] });
 
@@ -184,11 +110,11 @@ let queue: Promise<unknown> = Promise.resolve();
 let scratchCount = 0;
 
 const write = async (next: PersistedState) => {
-  await mkdir(dirname(stateFile), { recursive: true });
+  await mkdir(dirname(configFile), { recursive: true });
   scratchCount += 1;
-  const scratch = `${stateFile}.${process.pid}.${scratchCount}.tmp`;
+  const scratch = `${configFile}.${process.pid}.${scratchCount}.tmp`;
   await writeFile(scratch, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
-  await rename(scratch, stateFile);
+  await rename(scratch, configFile);
   state = next;
 };
 
@@ -200,14 +126,21 @@ const persist = (next: PersistedState): Promise<void> => {
   return settled;
 };
 
+const readFrom = async (path: string): Promise<PersistedState | null> => {
+  try {
+    return coerce(JSON.parse(await readFile(path, 'utf8')));
+  } catch {
+    return null;
+  }
+};
+
 export const loadState = async (): Promise<PersistedState> => {
   if (state) return state;
 
-  try {
-    state = coerce(JSON.parse(await readFile(stateFile, 'utf8')));
-  } catch {
-    state = emptyState();
-  }
+  state =
+    (await readFrom(configFile)) ??
+    (legacyConfigFile ? await readFrom(legacyConfigFile) : null) ??
+    emptyState();
 
   return state;
 };
@@ -223,7 +156,7 @@ export const saveSettings = async (patch: Partial<Settings>): Promise<Settings> 
     : current.settings.orgs;
 
   // Every field is named rather than spread from the patch, because an imported config file is
-  // arbitrary JSON and unknown keys have no business reaching the state file.
+  // arbitrary JSON and unknown keys have no business reaching the config file.
   const next: PersistedState = {
     ...current,
     settings: {
@@ -289,4 +222,4 @@ export const pruneDismissed = async (liveIds: Set<string>): Promise<void> => {
   }
 };
 
-export const stateFilePath = stateFile;
+export const configFilePath = configFile;

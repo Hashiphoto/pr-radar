@@ -50,7 +50,7 @@ const byOldestFirst = (left: PullRequest, right: PullRequest): number =>
 export const App = () => {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [stateFile, setStateFile] = useState('');
+  const [configFile, setConfigFile] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -87,7 +87,7 @@ export const App = () => {
       .fetchSettings()
       .then((result) => {
         setSettings(result.settings);
-        setStateFile(result.stateFile);
+        setConfigFile(result.configFile);
       })
       .catch(() => setSettings(null));
     void refresh();
@@ -564,7 +564,7 @@ export const App = () => {
       {isSettingsOpen && settings && (
         <SettingsDrawer
           settings={settings}
-          stateFile={stateFile}
+          configFile={configFile}
           notifications={notifications}
           onClose={() => setIsSettingsOpen(false)}
           onChange={(patch) => void applySettings(patch)}
