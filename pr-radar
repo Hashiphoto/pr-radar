@@ -9,7 +9,34 @@ url="http://localhost:${port}"
 unit_file="${HOME}/.config/systemd/user/${unit}.service"
 desktop_file="${HOME}/.local/share/applications/${unit}.desktop"
 
+# --lan is a flag on any command rather than a command of its own, so it reads as a property of
+# the instance you are starting: ./pr-radar start --lan, ./pr-radar install --lan.
+lan=""
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --lan) lan=1 ;;
+    *) args+=("$arg") ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
+if [[ -n "$lan" ]]; then export PR_RADAR_LAN=1; fi
+
 cd "$here"
+
+lan_url() {
+  local address
+  address="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  echo "http://${address:-<this machine>}:${port}"
+}
+
+# systemd reads the unit file, not this shell, so --lan on start would be a flag that
+# quietly did nothing to the instance systemd is about to bring up.
+warn_if_systemd_ignores_lan() {
+  if [[ -n "$lan" ]] && under_systemd; then
+    echo "The ${unit} unit sets its own binding - run './pr-radar install --lan' to expose it."
+  fi
+}
 
 is_up() {
   curl -sf -o /dev/null --max-time 2 "${url}/api/service"
@@ -61,6 +88,8 @@ write_unit() {
   # rather than letting it fall back to an older /usr/bin/node.
   local node_bin
   node_bin="$(dirname "$(command -v node)")"
+  # The unit is the whole record of how systemd starts this, so --lan has to land in it:
+  # installing without the flag rewrites the file without the line, which is how it goes back.
   cat > "$unit_file" <<UNIT
 [Unit]
 Description=PR Radar - personalized GitHub pull request dashboard
@@ -71,7 +100,8 @@ Type=simple
 WorkingDirectory=${here}
 ExecStart=${here}/node_modules/.bin/tsx server/index.ts
 Environment=PORT=${port}
-Environment=PATH=${node_bin}:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+${lan:+Environment=PR_RADAR_LAN=1
+}Environment=PATH=${node_bin}:${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 RestartSec=10
 
@@ -83,6 +113,7 @@ UNIT
 case "${1:-open}" in
   open | start)
     ensure_built
+    warn_if_systemd_ignores_lan
     if is_up; then
       echo "Already running on ${url}"
     elif under_systemd; then
@@ -91,6 +122,7 @@ case "${1:-open}" in
     else
       nohup node_modules/.bin/tsx server/index.ts > /tmp/pr-radar-${port}.log 2>&1 &
       wait_for_up && echo "Started on ${url} (log: /tmp/pr-radar-${port}.log)"
+      if [[ -n "$lan" ]]; then echo "On your local network: $(lan_url)"; fi
     fi
     [[ "${1:-open}" == "open" ]] && command -v xdg-open > /dev/null &&
       xdg-open "$url" > /dev/null 2>&1 || true
@@ -112,6 +144,7 @@ case "${1:-open}" in
 
   restart)
     ensure_built
+    warn_if_systemd_ignores_lan
     if under_systemd; then
       systemctl --user restart "$unit"
       wait_for_up && echo "Restarted via systemd on ${url}"
@@ -150,6 +183,7 @@ case "${1:-open}" in
     # enable --now leaves an already-active unit on its old definition.
     systemctl --user restart "$unit"
     wait_for_up && echo "Installed and running as a user service on ${url}"
+    if [[ -n "$lan" ]]; then echo "On your local network: $(lan_url)"; fi
     echo "Survive logout with: sudo loginctl enable-linger ${USER}"
     ;;
 
@@ -178,6 +212,11 @@ PR Radar service control
   ./pr-radar build     rebuild the client, restart if managed by systemd
   ./pr-radar install   run it as a systemd user service, starting at login
   ./pr-radar uninstall remove the systemd user service
+
+  --lan                on start or install, also answer on your local network.
+                       Off by default: PR Radar has no login, so anyone who can
+                       reach the port sees your pull requests and can retry your
+                       builds. Install again without it to go back to loopback.
 USAGE
     ;;
 esac

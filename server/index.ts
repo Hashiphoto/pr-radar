@@ -1,5 +1,6 @@
 import express from 'express';
 import { existsSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Settings } from '../shared/types.js';
@@ -28,10 +29,46 @@ import {
   configFilePath,
 } from './store.js';
 
-const port = Number(process.env.PORT ?? 4317);
-// Loopback only by default: the dashboard exposes the viewer's private pull requests and
-// can trigger authenticated CI writes, so it must not be reachable from the network.
-const host = process.env.HOST ?? '127.0.0.1';
+const flags = process.argv.slice(2);
+
+const isTruthy = (value: string | undefined): boolean =>
+  value !== undefined && ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+
+// --host=1.2.3.4 and --host 1.2.3.4 both read, since a flag typed the other way is a silent
+// fallback to loopback rather than an error anybody notices.
+const flagValue = (name: string): string | null => {
+  const inline = flags.find((flag) => flag.startsWith(`--${name}=`));
+  if (inline !== undefined) return inline.slice(name.length + 3);
+
+  const index = flags.indexOf(`--${name}`);
+  if (index < 0) return null;
+
+  const next = flags[index + 1];
+  return next !== undefined && !next.startsWith('-') ? next : null;
+};
+
+const port = Number(flagValue('port') ?? process.env.PORT ?? 4317);
+// Loopback unless asked otherwise: the dashboard shows the viewer's private pull requests and can
+// trigger authenticated CI writes, and it has no login, so reaching it from another machine has to
+// be a decision somebody made rather than what happens by default.
+const wantsLan = flags.includes('--lan') || isTruthy(process.env.PR_RADAR_LAN);
+const host = flagValue('host') ?? process.env.HOST ?? (wantsLan ? '0.0.0.0' : '127.0.0.1');
+const isLoopback = ['127.0.0.1', 'localhost', '::1'].includes(host);
+
+// 0.0.0.0 answers on every interface, so the useful thing to report is the addresses another
+// device can actually type. The interface name comes along because a docker bridge and the wifi
+// card are both "not internal", and only one of them is the one you want on your phone.
+const reachableAt = (): { url: string; interfaceName: string }[] => {
+  if (isLoopback) return [];
+  if (host !== '0.0.0.0') return [{ url: `http://${host}:${port}`, interfaceName: 'bound address' }];
+
+  return Object.entries(networkInterfaces()).flatMap(([interfaceName, entries]) =>
+    (entries ?? [])
+      .filter((entry) => entry.family === 'IPv4' && !entry.internal)
+      .map((entry) => ({ url: `http://${entry.address}:${port}`, interfaceName })),
+  );
+};
+
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const clientDist = join(projectRoot, 'dist');
 
@@ -134,7 +171,11 @@ app.post('/api/bot-review', async (request, response) => {
 });
 
 app.get('/api/service', (_request, response) => {
-  response.json(isDemoMode ? demoService(port) : describeService(port));
+  response.json(
+    isDemoMode
+      ? demoService(port)
+      : describeService(port, reachableAt().map((entry) => entry.url)),
+  );
 });
 
 app.get('/api/settings', async (_request, response) => {
@@ -196,7 +237,21 @@ if (existsSync(clientDist)) {
 
 app.listen(port, host, () => {
   const hasClient = existsSync(clientDist);
-  console.log(`pr-radar listening on http://${host === '127.0.0.1' ? 'localhost' : host}:${port}`);
+  const addresses = reachableAt();
+
+  console.log(`pr-radar listening on http://localhost:${port}`);
+
+  if (addresses.length > 0) {
+    console.log('reachable from your local network at:');
+    for (const { url, interfaceName } of addresses) console.log(`  ${url}  (${interfaceName})`);
+    console.log(
+      'PR Radar has no login, so anyone who can reach that port reads your pull requests and can',
+    );
+    console.log('retry your builds. Keep it to networks you trust.');
+  } else if (!isLoopback) {
+    console.log(`bound to ${host}, but no network address was found to report`);
+  }
+
   console.log(`config file: ${configFilePath}`);
   if (!hasClient) {
     console.log('client bundle not built yet - run `pnpm dev` for the Vite dev server');

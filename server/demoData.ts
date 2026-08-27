@@ -411,4 +411,5 @@ export const demoService = (port: number): ServiceInfo => ({
   projectRoot: '/home/you/Git/pr-radar',
   configFile: '/home/you/.config/pr-radar/config.json',
   nodeVersion: 'v22.21.1',
+  exposedUrls: [],
 });

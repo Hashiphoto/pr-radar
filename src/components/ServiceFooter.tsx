@@ -117,6 +117,7 @@ export const ServiceFooter = () => {
               {formatUptime(service.uptimeSeconds)}
               {' · port '}
               {service.port}
+              {service.exposedUrls.length > 0 ? ' (on your network)' : ''}
               {' · v'}
               {service.version}
             </>
@@ -137,7 +138,27 @@ export const ServiceFooter = () => {
               <dd>{new Date(service.startedAt).toLocaleString()}</dd>
               <dt>Node</dt>
               <dd>{service.nodeVersion} on {service.host}</dd>
+              {service.exposedUrls.length > 0 && (
+                <>
+                  <dt>On your network</dt>
+                  <dd>
+                    {service.exposedUrls.map((url) => (
+                      <div key={url}>
+                        <code>{url}</code>
+                      </div>
+                    ))}
+                  </dd>
+                </>
+              )}
             </dl>
+          )}
+
+          {service && service.exposedUrls.length > 0 && (
+            <p className="hint">
+              Another device on this network can open those addresses, and PR Radar has no login,
+              so whoever does sees your pull requests and can retry your builds. Start it without{' '}
+              <code>--lan</code> to go back to loopback only.
+            </p>
           )}
 
           {service?.managedBy === 'manual' && (

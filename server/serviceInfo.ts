@@ -32,7 +32,7 @@ const isRunningAsUnit = (): boolean => {
   }
 };
 
-export const describeService = (port: number): ServiceInfo => {
+export const describeService = (port: number, exposedUrls: string[] = []): ServiceInfo => {
   const isSystemd = isRunningAsUnit();
 
   return {
@@ -48,5 +48,6 @@ export const describeService = (port: number): ServiceInfo => {
     projectRoot,
     configFile: configFilePath,
     nodeVersion: process.version,
+    exposedUrls,
   };
 };

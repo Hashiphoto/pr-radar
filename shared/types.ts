@@ -155,4 +155,7 @@ export interface ServiceInfo {
   projectRoot: string;
   configFile: string;
   nodeVersion: string;
+  // Empty when it is loopback only. Anything in here is an address another device on the network
+  // can open, which the page says out loud rather than leaving to whoever started the process.
+  exposedUrls: string[];
 }

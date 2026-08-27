@@ -47,6 +47,7 @@ just for this session.
 | Command | |
 | --- | --- |
 | `./pr-radar` | Start it and open the browser |
+| `./pr-radar start --lan` | Start it reachable from your phone, too |
 | `./pr-radar status` | Health, pid, uptime |
 | `./pr-radar restart` | Restart |
 | `./pr-radar logs` | Follow the log |
@@ -98,12 +99,34 @@ with is an edit to that file rather than to the code.
 sudo loginctl enable-linger "$USER"
 ```
 
+**Reach it from your phone.** PR Radar answers on loopback, so nothing but the machine running it
+can open it. `--lan` binds every interface instead:
+
+```bash
+./pr-radar start --lan       # until it stops
+./pr-radar install --lan     # and every start after a reboot
+```
+
+Then type the address it prints. The startup log lists one per interface, since your wifi card and
+a docker bridge are equally "not loopback" and only one of them is the one you want, and the footer
+at the bottom of the page says `port 4317 (on your network)` and repeats the list, so an exposed
+instance is not one you can leave running without knowing. There is no login: anyone who can reach
+that port reads your pull requests and can retry your builds, so keep it to networks you trust.
+`./pr-radar install` with no flag rewrites the unit without the setting, which is how it goes back.
+
+Starting the server yourself takes the same flag, `PR_RADAR_LAN=1` if an environment variable fits
+better, and `HOST` to pin one address rather than all of them. There is no setting for any of this
+in the page, on purpose: settings are editable over the API, and what the server binds to should
+not be something a browser tab can change. For the Vite dev server, `pnpm dev:client --host` is
+Vite's own equivalent.
+
 **Try it without GitHub.** `PR_RADAR_DEMO=1 pnpm dev:server` serves a fake dataset.
 
 ## Notes
 
-Settings and dismissals live in `~/.config/pr-radar/config.json`. The server binds to
-loopback only, since it exposes your private pull requests — set `HOST` to override.
+Settings and dismissals live in `~/.config/pr-radar/config.json`. The server binds to loopback,
+since it exposes your private pull requests and can retry your builds with no login of its own —
+`--lan` above is how to reach it from another device, and `HOST` still pins a single address.
 GitHub auth comes from `PR_RADAR_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or the `gh` CLI, in
 that order; a manual token needs the `repo` and `read:org` scopes. If an organization enforces
 SAML SSO, the token has to be authorized for it too — GitHub answers search without that
