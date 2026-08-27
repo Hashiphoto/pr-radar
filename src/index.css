@@ -1748,8 +1748,11 @@ kbd {
   z-index: 51;
 }
 
+/* Wide enough for a group's name, its filters and its hue to sit on one line, and tall enough to
+   show the list rather than a window onto it. */
 .modal.is-wide {
-  width: min(720px, calc(100vw - 32px));
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(840px, calc(100vh - 48px));
 }
 
 .help-column {

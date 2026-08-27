@@ -29,7 +29,7 @@ export const GroupEditorModal = ({ groups, onSave, onClose }: GroupEditorModalPr
   return (
     <>
       <div className="modal-scrim" onClick={onClose} />
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Groups">
+      <div className="modal is-wide" role="dialog" aria-modal="true" aria-label="Groups">
         <div className="modal-head">
           <h2>Groups</h2>
           <div className="topbar-spacer" />
