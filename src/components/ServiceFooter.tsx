@@ -79,6 +79,11 @@ export const ServiceFooter = () => {
   const [isReachable, setIsReachable] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
+  // A rebuild restarts the server while the tabs already open keep the bundle they loaded, so the
+  // page and the server it is talking to are routinely a version apart. A field one of them has
+  // not heard of yet is a missing line here, not a blank page.
+  const exposedUrls = service?.exposedUrls ?? [];
+
   useEffect(() => {
     const load = () => {
       api
@@ -117,7 +122,7 @@ export const ServiceFooter = () => {
               {formatUptime(service.uptimeSeconds)}
               {' · port '}
               {service.port}
-              {service.exposedUrls.length > 0 ? ' (on your network)' : ''}
+              {exposedUrls.length > 0 ? ' (on your network)' : ''}
               {' · v'}
               {service.version}
             </>
@@ -138,11 +143,11 @@ export const ServiceFooter = () => {
               <dd>{new Date(service.startedAt).toLocaleString()}</dd>
               <dt>Node</dt>
               <dd>{service.nodeVersion} on {service.host}</dd>
-              {service.exposedUrls.length > 0 && (
+              {exposedUrls.length > 0 && (
                 <>
                   <dt>On your network</dt>
                   <dd>
-                    {service.exposedUrls.map((url) => (
+                    {exposedUrls.map((url) => (
                       <div key={url}>
                         <code>{url}</code>
                       </div>
@@ -153,7 +158,7 @@ export const ServiceFooter = () => {
             </dl>
           )}
 
-          {service && service.exposedUrls.length > 0 && (
+          {exposedUrls.length > 0 && (
             <p className="hint">
               Another device on this network can open those addresses, and PR Radar has no login,
               so whoever does sees your pull requests and can retry your builds. Start it without{' '}

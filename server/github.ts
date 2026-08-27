@@ -9,7 +9,7 @@ import type {
   Snapshot,
 } from '../shared/types.js';
 import { detectAccessBlock } from './accessBlock.js';
-import { githubGraphqlWithWarnings } from './githubClient.js';
+import { githubGraphql, githubGraphqlWithWarnings } from './githubClient.js';
 import { reviewStateFor, signalsFor } from './reviewState.js';
 
 const prFields = `
@@ -32,7 +32,7 @@ const prFields = `
   labels(first: 12) { nodes { name color } }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
   reviewRequests(first: 25) {
-    nodes { requestedReviewer { __typename ... on User { login } ... on Team { name } } }
+    nodes { requestedReviewer { __typename ... on User { login } ... on Team { name slug } } }
   }
   latestOpinionatedReviews(first: 50) { nodes { author { __typename login } state } }
   reviews(first: 60) { nodes { author { __typename login } state } }
@@ -65,6 +65,14 @@ interface RawActor {
   avatarUrl?: string;
 }
 
+// A requested reviewer is a User or a Team, and only a Team has the slug and name.
+interface RawRequestedReviewer {
+  __typename: string;
+  login?: string;
+  name?: string;
+  slug?: string;
+}
+
 interface RawPullRequest {
   id: string;
   number: number;
@@ -84,7 +92,9 @@ interface RawPullRequest {
   repository: { nameWithOwner: string; owner: { login: string } };
   labels: { nodes: { name: string; color: string }[] };
   commits: { nodes: { commit: { statusCheckRollup: { state: CheckState } | null } }[] };
-  reviewRequests: { nodes: { requestedReviewer: { __typename: string; login?: string; name?: string } | null }[] };
+  reviewRequests: {
+    nodes: { requestedReviewer: RawRequestedReviewer | null }[];
+  };
   latestOpinionatedReviews: { nodes: { author: RawActor | null; state: string }[] };
   reviews: { nodes: { author: RawActor | null; state: string }[] };
   reviewThreads: {
@@ -122,12 +132,72 @@ const botMatcherFor = (logins: string[]): BotMatcher => {
   };
 };
 
+// Which teams the viewer is actually in, per organization. Aliased by index so one round trip
+// covers every organization a team was requested in.
+const teamMembershipQuery = (orgCount: number): string => {
+  const indexes = [...Array(orgCount).keys()];
+
+  return `
+query PrRadarTeams($login: String!${indexes.map((index) => `, $org${index}: String!`).join('')}) {
+  ${indexes
+    .map(
+      (index) =>
+        `org${index}: organization(login: $org${index}) { teams(first: 100, userLogins: [$login]) { nodes { slug } } }`,
+    )
+    .join('\n  ')}
+}`;
+};
+
+interface TeamMembershipData {
+  [alias: string]: { teams: { nodes: { slug: string }[] } } | null;
+}
+
+// A review request naming a team is only the reason a pull request reached you if you are in that
+// team; otherwise it is somebody else's queue showing on your row. An organization missing from
+// this map is one whose answer never came back - a token without `read:org`, an owner that is a
+// user rather than an organization, SAML SSO withheld - and an unknown answer stays unspoken
+// rather than being guessed at.
+const fetchMyTeamSlugs = async (
+  orgs: string[],
+  viewerLogin: string,
+): Promise<Map<string, Set<string>>> => {
+  const found = new Map<string, Set<string>>();
+  if (orgs.length === 0) return found;
+
+  const variables: Record<string, unknown> = { login: viewerLogin };
+  orgs.forEach((org, index) => {
+    variables[`org${index}`] = org;
+  });
+
+  try {
+    const data = await githubGraphql<TeamMembershipData>(
+      teamMembershipQuery(orgs.length),
+      variables,
+    );
+
+    orgs.forEach((org, index) => {
+      const nodes = data[`org${index}`]?.teams.nodes;
+      if (nodes) found.set(org, new Set(nodes.map((team) => team.slug)));
+    });
+  } catch {
+    // Naming no team is the fallback: the page can say a pull request is waiting on you without
+    // claiming a route it could not confirm.
+  }
+
+  return found;
+};
+
 const buildSearchQuery = (terms: string[], orgs: string[]): string =>
   [...terms, 'is:pr', 'archived:false', ...orgs.map((org) => `org:${org}`)].join(' ');
 
 const stateOf = (raw: RawPullRequest): PrState => (raw.isDraft ? 'draft' : 'ready');
 
-const toPullRequest = (raw: RawPullRequest, viewerLogin: string, isBot: BotMatcher): PullRequest => {
+const toPullRequest = (
+  raw: RawPullRequest,
+  viewerLogin: string,
+  isBot: BotMatcher,
+  myTeams: Map<string, Set<string>>,
+): PullRequest => {
   // Bot verdicts have their own dimension, so the approval tally counts people only.
   const authorLogin = raw.author?.login ?? null;
   const countableReviews = raw.latestOpinionatedReviews.nodes.filter(
@@ -136,7 +206,8 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string, isBot: BotMatch
 
   const requestedLogins = raw.reviewRequests.nodes
     .map((request) => request.requestedReviewer)
-    .filter((reviewer): reviewer is { __typename: string; login?: string; name?: string } => reviewer !== null);
+    .filter((reviewer): reviewer is RawRequestedReviewer => reviewer !== null);
+  const myTeamSlugs = myTeams.get(raw.repository.owner.login);
 
   const myReview = raw.reviews.nodes.find((review) => review.author?.login === viewerLogin);
   const isRequestedBot = (reviewer: { __typename: string; login?: string }) =>
@@ -167,7 +238,10 @@ const toPullRequest = (raw: RawPullRequest, viewerLogin: string, isBot: BotMatch
       (reviewer) => reviewer.__typename === 'User' && reviewer.login === viewerLogin,
     ),
     requestedTeams: requestedLogins
-      .filter((reviewer) => reviewer.__typename === 'Team')
+      .filter(
+        (reviewer) =>
+          reviewer.__typename === 'Team' && myTeamSlugs?.has(reviewer.slug ?? '') === true,
+      )
       .map((reviewer) => reviewer.name ?? 'team'),
     approvalCount: countableReviews.filter((review) => review.state === 'APPROVED').length,
     changesRequestedCount: countableReviews.filter((review) => review.state === 'CHANGES_REQUESTED').length,
@@ -205,11 +279,27 @@ export const fetchSnapshot = async (
   const vipSet = new Set(settings.vips.map((login) => login.toLowerCase()));
   const isBot = botMatcherFor(settings.bots);
 
+  // Only the organizations where a team was actually asked to review, so a refresh that has none
+  // stays the single query it was.
+  const orgsWithTeamRequest = [
+    ...new Set(
+      [...data.reviewRequested.nodes, ...data.authored.nodes]
+        .filter((node): node is RawPullRequest => node !== null)
+        .filter((node) =>
+          node.reviewRequests.nodes.some(
+            (request) => request.requestedReviewer?.__typename === 'Team',
+          ),
+        )
+        .map((node) => node.repository.owner.login),
+    ),
+  ];
+  const myTeams = await fetchMyTeamSlugs(orgsWithTeamRequest, viewerLogin);
+
   const mapNodes = (nodes: (RawPullRequest | null)[]): PullRequest[] =>
     nodes
       .filter((node): node is RawPullRequest => node !== null)
       .map((node) => {
-        const pullRequest = toPullRequest(node, viewerLogin, isBot);
+        const pullRequest = toPullRequest(node, viewerLogin, isBot, myTeams);
         return { ...pullRequest, isVip: vipSet.has(pullRequest.author?.login.toLowerCase() ?? '') };
       });
 

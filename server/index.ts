@@ -230,7 +230,10 @@ app.delete('/api/dismissed/:id', async (request, response) => {
 
 if (existsSync(clientDist)) {
   app.use(express.static(clientDist));
-  app.get(/^(?!\/api\/).*/, (_request, response) => {
+  // Routes fall back to the app, but a missing /assets/ file does not: a hashed bundle that is
+  // gone means the page asking for it came from a build that is gone, and handing it index.html
+  // turns that into a blank screen instead of a 404 that says so.
+  app.get(/^(?!\/(api|assets)\/).*/, (_request, response) => {
     response.sendFile(join(clientDist, 'index.html'));
   });
 }
