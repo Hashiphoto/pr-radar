@@ -60,7 +60,6 @@ export const App = () => {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [isGroupEditorOpen, setIsGroupEditorOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [collapsed, setCollapsed] = useLocalStorage<Record<string, boolean>>('pr-radar.collapsed', {});
   const [widths, setWidths] = useLocalStorage<Record<string, number>>(
     'pr-radar.columnWidths',
     DEFAULT_WIDTHS,
@@ -115,18 +114,15 @@ export const App = () => {
     [refresh, settings],
   );
 
-  // Collapsed sections are keyed by group id, so a stale entry would hand a default group back
-  // hidden, which is not a default anybody set.
   const resetSettings = useCallback(async () => {
     try {
       const result = await api.resetSettings();
       setSettings(result.settings);
-      setCollapsed({});
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Failed to reset settings');
     }
-  }, [refresh, setCollapsed]);
+  }, [refresh]);
 
   const toggleVip = useCallback(
     (login: string) => {
@@ -216,11 +212,6 @@ export const App = () => {
     (column: string, width: number) =>
       setWidths((current) => ({ ...current, [column]: Math.round(width) })),
     [setWidths],
-  );
-
-  const toggleSection = useCallback(
-    (key: string) => setCollapsed((current) => ({ ...current, [key]: !current[key] })),
-    [setCollapsed],
   );
 
   useEffect(() => {
@@ -488,8 +479,6 @@ export const App = () => {
               variant={entry.group.notifyOnNew ? 'vip' : 'default'}
               hue={entry.group.hue}
               notifies={entry.group.notifyOnNew}
-              isCollapsed={Boolean(collapsed[entry.group.id])}
-              onToggle={() => toggleSection(entry.group.id)}
               isSettingsOpen={editingGroupId === entry.group.id}
               onOpenSettings={() =>
                 setEditingGroupId((current) => (current === entry.group.id ? null : entry.group.id))
@@ -509,11 +498,7 @@ export const App = () => {
                 ) : null
               }
             >
-              {entry.entries.length > 0 ? (
-                renderTable(entry.entries)
-              ) : (
-                <div className="empty">Nothing in this group right now.</div>
-              )}
+              {entry.entries.length > 0 ? renderTable(entry.entries) : null}
             </Section>
           ))}
 
